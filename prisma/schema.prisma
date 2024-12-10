@@ -1,0 +1,90 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  // Optional: Enable Supabase-specific features
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  
+  // Supabase-specific connection settings
+  extensions = [
+    "uuid-ossp",  // For generating UUIDs
+    "pgcrypto"    // For additional cryptographic functions
+  ]
+}
+
+model Profile {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  walletAddress String      @unique
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  dimoTokens    DimoToken[]
+  files         File[]
+
+  @@index([email, walletAddress])
+}
+
+model DimoToken {
+  id        String   @id @default(cuid())
+  token     String   @db.Text
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  
+  // Relationship to Profile
+  profile   Profile  @relation(fields: [profileId], references: [id])
+  profileId String
+
+  @@unique([profileId, token])
+  @@index([profileId])
+}
+
+model File {
+  id               String           @id @default(cuid())
+  blockchainFileId String           // ID from blockchain contract
+  url              String
+  ownerAddress     String
+  createdAt        DateTime         @default(now())
+  
+  // Relationship to Profile
+  owner            Profile          @relation(fields: [ownerId], references: [id])
+  ownerId          String
+  
+  permissions      FilePermission[]
+  proofs           FileProof[]
+
+  @@unique([blockchainFileId])
+  @@index([ownerAddress])
+}
+
+model FilePermission {
+  id               String   @id @default(cuid())
+  fileId           String
+  accountAddress   String
+  permissionKey    String
+  createdAt        DateTime @default(now())
+
+  // Relationship to File
+  file             File     @relation(fields: [fileId], references: [id])
+
+  @@unique([fileId, accountAddress])
+  @@index([fileId, accountAddress])
+}
+
+model FileProof {
+  id         String   @id @default(cuid())
+  fileId     String
+  proofData  String   // Storing as JSON string
+  createdAt  DateTime @default(now())
+
+  // Relationship to File
+  file       File     @relation(fields: [fileId], references: [id])
+
+  @@index([fileId])
+}
