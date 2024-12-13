@@ -1,5 +1,7 @@
 import { ethers } from 'ethers';
 import crypto from 'crypto';
+import axios from 'axios';
+import { supabase } from './supabase';
 
 // Interfaces to define the proof structure
 export interface ProofSubject {
@@ -105,7 +107,7 @@ export function prepareProofData(
         encryption_seed: 'DLPLABS_ENCRYPTION_KEY' // Don't tell people what it really is
       },
       prover: {
-        type: proverDetails.type || 'satya',
+        type: proverDetails.type || 'self-signed',
         address: proverDetails.address || '0x1a236AbF4860E3b2EF3D2ff9ec9C26B93178C6D9',
         url: proverDetails.url || 'dlplabs.io'
       },
@@ -113,8 +115,7 @@ export function prepareProofData(
         image_url: 'dlplabs.io',
         created_at: Math.floor(Date.now() / 1000),
         duration: Math.random() * 20, // Random duration lol
-        dlp_id: 523, //TODO: this needs to be replaced with the actual DLP ID. 
-        valid: true,
+        dlp_id: Number(process.env.DLP_ID),
         score: 0,
         authenticity: 0,
         ownership: 0,
@@ -122,7 +123,7 @@ export function prepareProofData(
         uniqueness: 0,
         attributes: {},
         metadata: {
-          dlp_id: 523 //TODO: this needs to be replaced with the actual DLP ID. 
+          dlp_id: Number(process.env.DLP_ID) 
         },
         ...proofMetadata
       }
@@ -131,6 +132,145 @@ export function prepareProofData(
   };
 
   return proofData;
+}
+
+interface GenerateProofOptions {
+  fileId: string;
+  wallet: ethers.Wallet;
+  includeFile?: boolean;
+}
+
+interface GenerateProofResult {
+  file?: {
+    id: string;
+    url: string;
+    ownerAddress: string;
+  };
+  unsignedProof: SignedProof;
+  signedProof: SignedProof;
+  debug: {
+    hasEncryptionKey: boolean;
+    proverAddress: string;
+    dlpId: number;
+  };
+}
+
+interface FileData {
+  blockchainFileId: number;
+  url: string;
+  ownerAddress: string;
+  proof?: any;
+}
+
+export async function validateAndGetFile(fileId: string | number): Promise<FileData> {
+  // Check if file exists
+  const { data: file, error: fileError } = await supabase
+    .from('files')
+    .select(`
+      *,
+      owner:profiles (*)
+    `)
+    .eq('blockchainFileId', fileId.toString())
+    .single();
+
+  if (fileError || !file) {
+    throw new Error('File not found');
+  }
+
+  if (file.proof && file.proof.length > 0) {
+    throw new Error('File already has a proof');
+  }
+
+  if (!file.url) {
+    throw new Error('Invalid File URL');
+  }
+  
+  if (!file.owner?.connected_wallet) {
+    throw new Error('File owner not found');
+  }
+  
+  let fileData: FileData = {
+    blockchainFileId: file.blockchainFileId,
+    url: file.url,
+    ownerAddress: file.owner?.connected_wallet,
+    proof: file.proof
+  };
+  
+
+  return fileData;
+}
+
+export async function generateProof({ fileId, wallet, includeFile = false }: GenerateProofOptions): Promise<GenerateProofResult> {
+  const dlpId = process.env.DLP_ID;
+  if (!dlpId) {
+    throw new Error('DLP ID not configured');
+  }
+
+  const encryptionSeed = process.env.ENCRYPTION_SEED;
+  if (!encryptionSeed) {
+    throw new Error('Encryption seed not configured');
+  }
+
+  // Get and validate file
+  const file = await validateAndGetFile(fileId);
+
+  // Fetch file content to generate checksums
+  const fileResponse = await axios.get(file.url, { responseType: 'arraybuffer' });
+  const fileBuffer = Buffer.from(fileResponse.data);
+
+  const startTime = Date.now();
+
+  // Generate unsigned proof
+  const unsignedProof = prepareProofData({
+    fileId: parseInt(fileId.toString()),
+    url: file.url,
+    ownerAddress: file.ownerAddress,
+    fileBuffer
+  }, {
+    type: 'self-signed',
+    address: wallet.address,
+    url: process.env.PROVER_URL || 'https://dlp.vana.org'
+  }, {
+    image_url: process.env.PROOF_GENERATOR_IMAGE || 'https://dlplabs.io',
+    created_at: Math.floor(Date.now() / 1000),
+    duration: (Date.now() - startTime) / 1000,
+    dlp_id: parseInt(dlpId),
+    score: 0.85,
+    authenticity: 1.0,
+    ownership: 1.0,
+    quality: 1.0,
+    uniqueness: 0.7,
+    attributes: {
+      hasEncryptionSeed: true,
+      encryptionSeed: encryptionSeed
+    },
+    metadata: {
+      dlp_id: parseInt(dlpId)
+    }
+  });
+
+  // Generate signed proof
+  const signedProof = await signProof(unsignedProof, wallet.privateKey);
+
+  const result: GenerateProofResult = {
+    unsignedProof,
+    signedProof,
+    debug: {
+      hasEncryptionKey: true,
+      proverAddress: wallet.address,
+      dlpId: parseInt(dlpId)
+    }
+  };
+
+  if (includeFile) {
+    result.file = {
+      id: file.blockchainFileId,
+      url: file.url,
+      ownerAddress: file.ownerAddress
+    };
+  }
+
+  return result;
 }
 
 // Function to sign the proof
