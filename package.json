@@ -2,6 +2,7 @@
   "name": "vehicle-dlp",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
@@ -9,10 +10,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "check": "npx tsx scripts/checkDimoVehicles.ts",
+    "permissions": "npx tsx scripts/checkPermissions.ts",
     "types:supabase": "npx supabase gen types typescript --project-id qdggrozfyfzfzkhthwuv > src/types/supabase.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "^2.8.0",
+    "@dimo-network/data-sdk": "^1.2.1",
     "@dimo-network/login-with-dimo": "^0.0.12",
     "@emotion/react": "^11.11.0",
     "@emotion/styled": "^11.11.0",
@@ -33,7 +37,9 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "dotenv": "^16.4.7",
     "supabase": "^2.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   }
 }

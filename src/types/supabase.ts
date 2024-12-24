@@ -51,6 +51,7 @@ export type Database = {
           dimo_completed_at: string | null
           dimo_completed_value: string | null
           dimo_completed_wallet: string | null
+          dimo_dataregistry_relay_url: string | null
           email: string | null
           first_name: string | null
           id: string
@@ -65,6 +66,7 @@ export type Database = {
           dimo_completed_at?: string | null
           dimo_completed_value?: string | null
           dimo_completed_wallet?: string | null
+          dimo_dataregistry_relay_url?: string | null
           email?: string | null
           first_name?: string | null
           id: string
@@ -79,10 +81,53 @@ export type Database = {
           dimo_completed_at?: string | null
           dimo_completed_value?: string | null
           dimo_completed_wallet?: string | null
+          dimo_dataregistry_relay_url?: string | null
           email?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
+          points?: number
+          public_id?: string
+          wallet_completed_at?: string | null
+        }
+        Relationships: []
+      }
+      profiles_wallet: {
+        Row: {
+          auth_nonce: string | null
+          connected_wallet: string
+          created_at: string | null
+          dimo_completed_at: string | null
+          dimo_completed_value: string | null
+          dimo_completed_wallet: string | null
+          dimo_dataregistry_relay_url: string | null
+          id: string
+          points: number
+          public_id: string
+          wallet_completed_at: string | null
+        }
+        Insert: {
+          auth_nonce?: string | null
+          connected_wallet: string
+          created_at?: string | null
+          dimo_completed_at?: string | null
+          dimo_completed_value?: string | null
+          dimo_completed_wallet?: string | null
+          dimo_dataregistry_relay_url?: string | null
+          id: string
+          points?: number
+          public_id?: string
+          wallet_completed_at?: string | null
+        }
+        Update: {
+          auth_nonce?: string | null
+          connected_wallet?: string
+          created_at?: string | null
+          dimo_completed_at?: string | null
+          dimo_completed_value?: string | null
+          dimo_completed_wallet?: string | null
+          dimo_dataregistry_relay_url?: string | null
+          id?: string
           points?: number
           public_id?: string
           wallet_completed_at?: string | null

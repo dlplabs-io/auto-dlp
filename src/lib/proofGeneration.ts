@@ -184,7 +184,7 @@ export async function validateAndGetFile(fileId: string | number): Promise<FileD
   if (!file.url) {
     throw new Error('Invalid File URL');
   }
-  
+
   if (!file.owner?.connected_wallet) {
     throw new Error('File owner not found');
   }
@@ -264,10 +264,10 @@ export async function generateProof({ fileId, wallet, includeFile = false }: Gen
 
   if (includeFile) {
     result.file = {
-      id: file.blockchainFileId,
+      id: file.blockchainFileId.toString(),
       url: file.url,
       ownerAddress: file.ownerAddress
-    };
+    };  
   }
 
   return result;
