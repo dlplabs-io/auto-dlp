@@ -117,6 +117,7 @@ export function prepareProofData(
         duration: Math.random() * 20, // Random duration lol
         dlp_id: Number(process.env.DLP_ID),
         score: 0,
+        valid: true,
         authenticity: 0,
         ownership: 0,
         quality: 0,

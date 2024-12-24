@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         // Check if file exists
         const { data: file } = await supabase
-            .from('File')
+            .from('files')
             .select('id')
             .eq('blockchainFileId', fileId.toString())
             .single();
@@ -44,17 +44,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(404).json({ message: 'File not found' });
         }
 
-        // Check if permission already exists
-        const { data: existingPermission } = await supabase
-            .from('FilePermission')
-            .select('id')
-            .eq('fileId', file.id)
-            .eq('accountAddress', accountAddress)
-            .single();
+        // // TODO: Check if permission already exists
+        // const { data: existingPermission } = await supabase
+        //     .from('FilePermissionfil')
+        //     .select('id')
+        //     .eq('fileId', file.id)
+        //     .eq('accountAddress', accountAddress)
+        //     .single();
 
-        if (existingPermission) {
-            return res.status(400).json({ message: 'Permission already exists for this account' });
-        }
+        // if (existingPermission) {
+        //     return res.status(400).json({ message: 'Permission already exists for this account' });
+        // }
 
         // Initialize provider and contract
         const provider = new ethers.providers.JsonRpcProvider(
@@ -71,18 +71,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         );
         await tx.wait();
 
-        // Store permission in database
-        const { error: permissionError } = await supabase
-            .from('FilePermission')
-            .insert({
-                fileId: file.id,
-                accountAddress,
-                permissionKey
-            });
+        // TODO: tore permission in database
+        // const { error: permissionError } = await supabase
+        //     .from('FilePermission')
+        //     .insert({
+        //         fileId: file.id,
+        //         accountAddress,
+        //         permissionKey
+        //     });
 
-        if (permissionError) {
-            throw new Error(`Error storing permission: ${permissionError.message}`);
-        }
+        // if (permissionError) {
+        //     throw new Error(`Error storing permission: ${permissionError.message}`);
+        // }
 
         return res.status(201).json({
             message: 'Permission added successfully',

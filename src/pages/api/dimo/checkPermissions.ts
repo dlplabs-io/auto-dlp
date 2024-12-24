@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { DimoError } from "./dimoCommon";
-import { DimoWrapper } from '../../../lib/dimo';
+import { DimoWrapper, DimoError } from '../../../lib/dimo';
 
 export default async function handler(
   req: NextApiRequest,

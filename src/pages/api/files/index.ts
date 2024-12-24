@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ethers } from 'ethers';
 import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
 import { supabase } from '@/lib/supabase';
+import { randomUUID } from 'crypto';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') {
@@ -48,29 +49,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const receipt = await tx.wait();
 
         // Get the file ID from the event logs
-        const event = receipt.events?.find(e => e.event === 'FileAdded');
+        const event = receipt.events?.find((e: { event: string; }) => e.event === 'FileAdded');
         if (!event) {
             throw new Error('File added but no FileAdded event found');
         }
         const blockchainFileId = event.args.fileId.toString();
 
         // Get owner profile if exists
-        supabase.from("profiles").select('id').eq('connected_wallet', ownerAddress).single();
-
-        const { data: ownerProfile } = await supabase
-            .from('Profile')
-            .select('id')
-            .eq('walletAddress', ownerAddress)
-            .single();
+        const profile = await supabase.from("profiles").select('*').eq('connected_wallet', ownerAddress).single();
 
         // Store file in database
         const { data: file, error: insertError } = await supabase
-            .from('File')
+            .from('files')
             .insert({
-                blockchainFileId,
-                url,
-                ownerAddress,
-                ownerId: ownerProfile?.id || null
+                id: randomUUID(),
+                blockchainFileId: blockchainFileId,
+                url: url || null,
+                proof: null,
+                ownerIdFkey: profile.data?.public_id || null,
+                createdAt: new Date().toISOString()
             })
             .select()
             .single();
