@@ -16,12 +16,14 @@ cp .env.example .env
 ```
 
 Required environment variables:
+- `DIMO_DOMAIN`: Your DIMO application domain
+- `DIMO_CLIENT_ID`: Your DIMO client ID
+- `DIMO_API_KEY`: Your DIMO API key
 - `DATAREGISTRY_CONTRACT_ADDRESS`: Ethereum contract address for the data registry
 - `DATA_REGISTRY_WALLET_PRIVATE_KEY`: Private key for the wallet that will interact with the contract
 - `DLP_ID`: Your DLP ID
-- `PROVER_URL`: URL for the proof generation service
 - `SUPABASE_URL`: Your Supabase project URL
-- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `SUPABASE_ANON_KEY`: Your Supabase service role key
 
 4. Run the development server:
 ```bash
@@ -30,133 +32,69 @@ yarn dev
 
 ## API Documentation
 
-### Files
+### DIMO Vehicle Integration
+
+#### Check Vehicle Ownership
+```http
+GET /api/dimo/hasVehicles?walletAddress={walletAddress}
+```
+
+Checks if a wallet address owns any DIMO vehicles.
+
+**Query Parameters**
+- `walletAddress`: Ethereum address to check for vehicle ownership
+
+**Response**
+```json
+{
+  "hasVehicles": boolean,
+  "vehicleCount": number,
+  "vehicleIds": number[],
+  "walletAddress": string
+}
+```
+
+#### Check Vehicle Permissions
+```http
+GET /api/dimo/checkPermissions?walletAddress={walletAddress}&vehicleId={vehicleId}
+```
+
+Checks if a wallet address has permission to access a specific vehicle.
+
+**Query Parameters**
+- `walletAddress`: Ethereum address to check permissions for
+- `vehicleId`: DIMO vehicle token ID
+
+**Response**
+```json
+{
+  "hasAccess": boolean,
+  "details": string (optional),
+  "walletAddress": string,
+  "vehicleTokenId": number
+}
+```
+
+### File Management (Work in Progress)
+
+The following endpoints are currently under development and not fully functional:
 
 #### Create File
 ```http
 POST /api/files
 ```
 
-Creates a new file entry and adds it to the blockchain.
-
-**Request Body**
-```json
-{
-  "url": "string",
-  "ownerAddress": "string"
-}
-```
-
-**Response**
-```json
-{
-  "message": "File created successfully",
-  "fileId": "string",
-  "file": {
-    "id": "string",
-    "blockchainFileId": "string",
-    "url": "string",
-    "ownerAddress": "string",
-    "ownerId": "string | null",
-    "createdAt": "string",
-    "updatedAt": "string"
-  }
-}
-```
-
-#### Get File Details
+#### Get File Permissions
 ```http
-GET /api/files/{fileId}
+GET /api/files/{fileId}/permissions
 ```
-
-Retrieves file details including owner information.
-
-**Response**
-```json
-{
-  "id": "string",
-  "url": "string",
-  "ownerAddress": "string",
-  "ownerPublicId": "string | null",
-  "hasCompletedDimo": "boolean",
-  "createdAt": "string"
-}
-```
-
-### File Permissions
 
 #### Add File Permission
 ```http
 POST /api/files/{fileId}/permissions
 ```
 
-Adds a permission for a specific account to access the file.
-
-**Request Body**
-```json
-{
-  "accountAddress": "string",
-  "permissionKey": "string"
-}
-```
-
-**Response**
-```json
-{
-  "message": "Permission added successfully",
-  "fileId": "string",
-  "accountAddress": "string"
-}
-```
-
-### File Proofs
-
-#### Generate Proof
-```http
-POST /api/files/{fileId}/proof
-```
-
-Generates and submits a proof for a file to the blockchain.
-
-**Response**
-```json
-{
-  "message": "Proof generated and added successfully",
-  "result": "string",
-  "proof": {
-    // Proof data structure
-  }
-}
-```
-
-#### Debug Proof Generation
-```http
-GET /api/files/{fileId}/proof/debug
-```
-
-Returns debug information about proof generation without submitting to the blockchain.
-
-**Response**
-```json
-{
-  "unsignedProof": {
-    // Unsigned proof data
-  },
-  "signedProof": {
-    // Signed proof data
-  },
-  "debug": {
-    "hasEncryptionKey": "boolean",
-    "proverAddress": "string",
-    "dlpId": "number"
-  },
-  "file": {
-    "id": "string",
-    "url": "string",
-    "ownerAddress": "string"
-  }
-}
-```
+**Note**: File management endpoints are currently being developed and may not work as expected. Please refer to the DIMO vehicle integration endpoints for stable functionality.
 
 ## Error Handling
 

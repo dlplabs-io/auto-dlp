@@ -14,13 +14,11 @@ type DeviceTypeGraphQLResponse = {
 }
 
 type SingleVehicleGraphQLResponse = {
-    aftermarketDevice: DeviceTypeGraphQLResponse;
-    syntheticDevice: DeviceTypeGraphQLResponse,
-    definition: { 
-        make: string;
-        model: string;
-        year: number
-    }
+    owner: string;
+    tokenId: number;
+    manufacturer: {
+        name: string;
+    };
 }
 type VehicleGraphQLResponse = {
   data: {
@@ -38,11 +36,9 @@ type DimoJwt = {
 
 // Exported types
 export type GetVehiclesDeviceResponse = {
-    make: string;
-    model: string;
-    year: number
+    owner: string;
     tokenId: number
-    address: string
+    manufacturer: string
 }
 
 export type GetVehiclesResponse = {
@@ -50,7 +46,8 @@ export type GetVehiclesResponse = {
 }
 
 export type PermissionResponse = {
-    hasAccess: boolean
+    hasAccess: boolean,
+    details?: string
 }
 
 export const dimo = new DIMO("Production");
@@ -71,7 +68,7 @@ export class DimoWrapper {
     return DimoWrapper.instance;
   }
 
-  private async getDeveloperToken(): Promise<DimoJwt> {
+  private async getDeveloperToken(): Promise<any> {
     // Check if we have a cached token that's still valid (with 5 min buffer)
     if (this.developerJwt && this.developerJwt.expiry > Date.now() + 300000) {
       return this.developerJwt.token;
@@ -83,6 +80,8 @@ export class DimoWrapper {
       private_key: process.env.DIMO_API_KEY!,
     });
 
+    // console.debug(jwt);
+
     // Cache the token with expiry (1 hour from now)
     this.developerJwt = {
       token: jwt,
@@ -93,32 +92,32 @@ export class DimoWrapper {
   }
 
   public async getVehicles(walletAddress: string): Promise<GetVehiclesResponse> {
-    const response = await this.dimo.identity.listVehicleDefinitionsPerAddress({
-        address: walletAddress,
-        limit: 10
+      const queryString = `query {
+                vehicles(first:50, filterBy: {owner: "${walletAddress}"}) {
+                    nodes {
+                        owner,
+                        tokenId,
+                        manufacturer {
+                            name
+                        }
+                    }
+                }
+            }`;
+      
+      const response: VehicleGraphQLResponse = await this.dimo.identity.query({
+        query: queryString
       });
+
       console.debug("vehicleResponse", response.data.vehicles.nodes);
 
       const vehicles = response.data.vehicles.nodes
-        .filter((vehicle: SingleVehicleGraphQLResponse) => vehicle.aftermarketDevice || vehicle.syntheticDevice)
-        .map((vehicle: SingleVehicleGraphQLResponse): GetVehiclesDeviceResponse =>  {
-        let returnObj: GetVehiclesDeviceResponse = {
-            make: vehicle.definition.make,
-            model: vehicle.definition.model,
-            year: vehicle.definition.year,
-            tokenId: 0, // initialize
-            address: "" // initialize
+        .filter((vehicle: SingleVehicleGraphQLResponse) => vehicle.tokenId !== 0)
+        .map((vehicle: SingleVehicleGraphQLResponse): GetVehiclesDeviceResponse =>  { 
+        return {
+            owner: vehicle.owner,
+            tokenId: vehicle.tokenId, 
+            manufacturer: vehicle.manufacturer.name
         }
-
-        if (vehicle.aftermarketDevice) {
-            returnObj.tokenId = vehicle.aftermarketDevice.tokenId;
-            returnObj.address = vehicle.aftermarketDevice.address;
-        } else if (vehicle.syntheticDevice) {
-            returnObj.tokenId = vehicle.syntheticDevice.tokenId;
-            returnObj.address = vehicle.syntheticDevice.address;
-        }
-
-        return returnObj
       });
 
 
@@ -132,7 +131,7 @@ export class DimoWrapper {
         // Exchange developer token for vehicle token
         const vehicleJwt = await this.dimo.tokenexchange.exchange({
             ...token,
-            privileges: [1,2,3,4,5,6],
+            privileges: [1],
             tokenId: vehicleTokenId
         });
 
@@ -143,7 +142,7 @@ export class DimoWrapper {
           
     } catch(error) { 
         console.error('Error exchanging developer token for vehicle token:', error);
-        return { hasAccess: false }
+        return { hasAccess: false, details: (error as DimoError).body.message };
     }
   }
 }

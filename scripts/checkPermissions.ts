@@ -18,7 +18,7 @@ async function main() {
     const dimoClient = DimoWrapper.getInstance();
 
     // Read the nonZeroProfiles.json file
-    const fileContent = await fs.readFile('nonZeroProfiles.json', 'utf-8');
+    const fileContent = await fs.readFile('out/nonZeroProfiles2.json', 'utf-8');
     const profiles: UserAddressAndTokenId[] = JSON.parse(fileContent);
 
     console.log(`Found ${profiles.length} profiles to check permissions for`);
@@ -52,7 +52,7 @@ async function main() {
 
     // Write results to permissions.json
     const json = JSON.stringify(permissionResults, null, 2);
-    await fs.writeFile('out/permissions.json', json);
+    await fs.writeFile('out/permissions2.json', json);
 
     console.log('\nResults summary:');
     console.log(`Total profiles checked: ${permissionResults.length}`);

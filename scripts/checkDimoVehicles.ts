@@ -22,7 +22,7 @@ async function main() {
   
     // Get all profiles with connected wallets
     const { data: profiles, error } = await supabase
-      .from('profiles')
+      .from('profiles_wallet')
       .select('*')
       .not('dimo_completed_wallet','is','null');
 
@@ -86,7 +86,7 @@ async function main() {
     console.log('\nNon-zero profiles:', nonZeroProfiles.length);
     // write the profiles to a json
     const json = JSON.stringify(nonZeroProfiles, null, 2);
-    await fs.writeFile('out/nonZeroProfiles.json', json);
+    await fs.writeFile('out/nonZeroProfiles2.json', json);
 
 
   } catch (err) {

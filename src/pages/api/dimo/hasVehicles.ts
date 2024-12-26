@@ -24,6 +24,7 @@ export default async function handler(
     return res.status(200).json({
       hasVehicles: response.vehicles.length > 0,
       vehicleCount: response.vehicles.length,
+      vehicleIds: response.vehicles.map((vehicle) => vehicle.tokenId),
       walletAddress
     });
 
