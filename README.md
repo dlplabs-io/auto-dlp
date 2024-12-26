@@ -42,7 +42,7 @@ GET /api/dimo/hasVehicles?walletAddress={walletAddress}
 Checks if a wallet address owns any DIMO vehicles.
 
 **Query Parameters**
-- `walletAddress`: Ethereum address to check for vehicle ownership
+- `walletAddress`: Ethereum address to check for vehicle ownership -- THis is the wallet address that is registered with DIMO (might be different from the wallet address that is logged in)
 
 **Response**
 ```json
