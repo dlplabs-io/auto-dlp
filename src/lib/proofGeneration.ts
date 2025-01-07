@@ -1,7 +1,32 @@
-import { ethers } from 'ethers';
 import crypto from 'crypto';
 import axios from 'axios';
 import { supabase } from './supabase';
+import { DimoWrapper } from './dimo';
+import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
+import { 
+  createPublicClient, 
+  http,
+  createWalletClient,
+  getContract,
+  Account,
+  toHex,
+  recoverMessageAddress
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { vanaChain } from './chains';
+
+type FileResponse = {
+  id: bigint;
+  ownerAddress: string;
+  url: string;
+  addedAtBlock: bigint;
+}
+
+// Create a public client for reading from the blockchain
+const publicClient = createPublicClient({
+  chain: vanaChain,
+  transport: http(process.env.RPC_ENDPOINT)
+});
 
 // Interfaces to define the proof structure
 export interface ProofSubject {
@@ -82,7 +107,6 @@ export function prepareProofData(
     fileBuffer?: Buffer;
   },
   proverDetails: {
-    type?: string;
     address?: string;
     url?: string;
   } = {},
@@ -107,7 +131,7 @@ export function prepareProofData(
         encryption_seed: 'DLPLABS_ENCRYPTION_KEY' // Don't tell people what it really is
       },
       prover: {
-        type: proverDetails.type || 'self-signed',
+        type: 'self-signed',
         address: proverDetails.address || '0x1a236AbF4860E3b2EF3D2ff9ec9C26B93178C6D9',
         url: proverDetails.url || 'dlplabs.io'
       },
@@ -137,7 +161,7 @@ export function prepareProofData(
 
 interface GenerateProofOptions {
   fileId: string;
-  wallet: ethers.Wallet;
+  wallet: any;
   includeFile?: boolean;
 }
 
@@ -160,47 +184,111 @@ interface FileData {
   blockchainFileId: number;
   url: string;
   ownerAddress: string;
-  proof?: any;
+  onChainFile?: OnChainFile;
+  fileBuffer?: Buffer;
 }
 
-export async function validateAndGetFile(fileId: string | number): Promise<FileData> {
-  // Check if file exists
-  const { data: file, error: fileError } = await supabase
-    .from('files')
-    .select(`
-      *,
-      owner:profiles (*)
-    `)
-    .eq('blockchainFileId', fileId.toString())
-    .single();
+interface OnChainFile {
+  url: string;
+  owner: string;
+  onBlock: bigint
+  fileId: bigint
+}
 
-  if (fileError || !file) {
-    throw new Error('File not found');
-  }
+async function getFileFromContract(fileId: number): Promise<OnChainFile> {
+  try {
+    const contract = getContract({
+      address: process.env.DATAREGISTRY_CONTRACT_ADDRESS as `0x${string}`,
+      abi: DATA_REGISTRY_ABI,
+      client: publicClient,
+    });
 
-  if (file.proof && file.proof.length > 0) {
-    throw new Error('File already has a proof');
-  }
+    const file = await contract.read.files([fileId]) as FileResponse
 
-  if (!file.url) {
-    throw new Error('Invalid File URL');
-  }
+    if (!file) {
+      throw new Error('Invalid file data from contract');
+    }
 
-  if (!file.owner?.connected_wallet) {
-    throw new Error('File owner not found');
+    return {
+      url: file.url,
+      owner: file.ownerAddress,
+      onBlock: file.addedAtBlock,
+      fileId: file.id
+    };
+  } catch (error) {
+    console.error('Error fetching file from contract:', error);
+    throw new Error('File not found on blockchain');
   }
+}
+
+interface VehicleIds {
+  vehicleIds: number[];
+}
+
+async function fetchVehicleIds(url: string): Promise<VehicleIds> {
+  try {
+    const response = await fetch(url);
+    if (!response.status || response.status !== 200) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching vehicle IDs:', error);
+    throw new Error('Failed to fetch vehicle IDs from URL');
+  }
+}
+
+/**
+ * Fetches the file from the blockchain and checks permissions for all vehicles in that URL
+ * @param fileId the FileID of the file to validate in the data registry contract
+ * @param includeFile whether to fetch and include the file buffer
+ * @returns the file data and vehicle permissions
+ */
+export async function validateFile(fileId: number | string, includeFile = false): Promise<FileData> {
+  const dimo = DimoWrapper.getInstance();
+  const numericFileId = Number(fileId);
   
-  let fileData: FileData = {
-    blockchainFileId: file.blockchainFileId,
-    url: file.url,
-    ownerAddress: file.owner?.connected_wallet,
-    proof: file.proof
+  // Get file from blockchain
+  const onChainFile = await getFileFromContract(numericFileId);
+  
+  // Fetch vehicle IDs from the URL -- TODO: doesn't work
+  const vehicleData = await fetchVehicleIds(onChainFile.url);
+  
+  // Check permissions for all vehicles
+  const deniedVehicles: number[] = [];
+  for (const vehicleId of vehicleData.vehicleIds) {
+    const hasPermission = await dimo.checkPermissions(vehicleId);
+    if (!hasPermission) {
+      deniedVehicles.push(vehicleId);
+    }
+  }
+
+  if (deniedVehicles.length > 0) {
+    throw new Error(`No permission for vehicles: ${deniedVehicles.join(', ')}`);
+  }
+
+  // Get file buffer if needed
+  let fileBuffer: Buffer | undefined;
+  if (includeFile) {
+    const response = await axios.get(onChainFile.url, { responseType: 'arraybuffer' });
+    fileBuffer = Buffer.from(response.data);
+  }
+
+  return {
+    blockchainFileId: numericFileId,
+    url: onChainFile.url,
+    ownerAddress: onChainFile.owner,
+    onChainFile,
+    fileBuffer
   };
-  
-
-  return fileData;
 }
 
+/**
+ * Fetches the fileId from the data registry contract, generates a proof, and signs it using @param wallet
+ * @param fileId the FileID of the file to validate in the data registry contract
+ * @param wallet the wallet to sign the proof 
+ * @returns 
+ */
 export async function generateProof({ fileId, wallet, includeFile = false }: GenerateProofOptions): Promise<GenerateProofResult> {
   const dlpId = process.env.DLP_ID;
   if (!dlpId) {
@@ -212,101 +300,80 @@ export async function generateProof({ fileId, wallet, includeFile = false }: Gen
     throw new Error('Encryption seed not configured');
   }
 
-  // Get and validate file
-  const file = await validateAndGetFile(fileId);
-
-  // Fetch file content to generate checksums
-  const fileResponse = await axios.get(file.url, { responseType: 'arraybuffer' });
-  const fileBuffer = Buffer.from(fileResponse.data);
-
-  const startTime = Date.now();
-
-  // Generate unsigned proof
-  const unsignedProof = prepareProofData({
-    fileId: parseInt(fileId.toString()),
-    url: file.url,
-    ownerAddress: file.ownerAddress,
-    fileBuffer
-  }, {
-    type: 'self-signed',
-    address: wallet.address,
-    url: process.env.PROVER_URL || 'https://dlp.vana.org'
-  }, {
-    image_url: process.env.PROOF_GENERATOR_IMAGE || 'https://dlplabs.io',
-    created_at: Math.floor(Date.now() / 1000),
-    duration: (Date.now() - startTime) / 1000,
-    dlp_id: parseInt(dlpId),
-    score: 0.85,
-    authenticity: 1.0,
-    ownership: 1.0,
-    quality: 1.0,
-    uniqueness: 0.7,
-    attributes: {
-      hasEncryptionSeed: true,
-      encryptionSeed: encryptionSeed
-    },
-    metadata: {
-      dlp_id: parseInt(dlpId)
-    }
+  // Create a wallet client for signing
+  const account = privateKeyToAccount(wallet.privateKey as `0x${string}`);
+  const walletClient = createWalletClient({
+    account,
+    chain: vanaChain,
+    transport: http(process.env.RPC_ENDPOINT)
   });
 
-  // Generate signed proof
+  // Get and validate file
+  const fileData = await validateFile(fileId, includeFile);
+
+  // Prepare the proof data
+  const unsignedProof = prepareProofData(
+    {
+      fileId: fileData.blockchainFileId,
+      url: fileData.url,
+      ownerAddress: fileData.ownerAddress,
+      fileBuffer: fileData.fileBuffer
+    },
+    {
+      address: account.address, // signer address
+      url: process.env.BASE_URL // prover url (DLP hostname)
+    }
+  );
+
+  // Sign the proof
   const signedProof = await signProof(unsignedProof, wallet.privateKey);
 
-  const result: GenerateProofResult = {
+  // Return result
+  return {
+    ...fileData,
     unsignedProof,
     signedProof,
     debug: {
       hasEncryptionKey: true,
-      proverAddress: wallet.address,
+      proverAddress: account.address,
       dlpId: parseInt(dlpId)
     }
   };
-
-  if (includeFile) {
-    result.file = {
-      id: file.blockchainFileId.toString(),
-      url: file.url,
-      ownerAddress: file.ownerAddress
-    };  
-  }
-
-  return result;
 }
 
-// Function to sign the proof
+
 export async function signProof(
   proof: SignedProof, 
   privateKey: string
 ): Promise<SignedProof> {
-  const proofString = JSON.stringify(proof.signed_fields);
-  
-  // Sign the proof using Ethereum-style signing
-  const signer = new ethers.Wallet(privateKey);
-  const signature = await signer.signMessage(
-    ethers.utils.toUtf8Bytes(proofString)
-  );
-
-  // Slap the signature on the proof
-  return {
-    ...proof,
-    signature
-  };
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    const message = JSON.stringify(proof.signed_fields);
+    const signature = await account.signMessage({ message });
+    
+    return {
+      ...proof,
+      signature
+    };
+  } catch (error) {
+    console.error('Error signing proof:', error);
+    throw new Error('Failed to sign proof');
+  }
 }
 
 // Don't really need this right now
-export function verifyProofSignature(
+export async function verifyProofSignature(
   proof: SignedProof
-): boolean {
+): Promise<boolean> {
   try {
     // Convert proof to JSON string
     const proofString = JSON.stringify(proof.signed_fields);
     
     // Recover signer address
-    const signerAddress = ethers.utils.verifyMessage(
-      ethers.utils.toUtf8Bytes(proofString), 
-      proof.signature
-    );
+    const signerAddress = await recoverMessageAddress({
+      message: proofString,
+      signature: proof.signature as `0x${string}`
+    });
 
     // Validate signer address matches prover address
     return signerAddress.toLowerCase() === 

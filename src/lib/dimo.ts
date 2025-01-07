@@ -104,10 +104,10 @@ export class DimoWrapper {
                 }
             }`;
       
-      const response: VehicleGraphQLResponse = await this.dimo.identity.query({
+      const response = await this.dimo.identity.query({
         query: queryString
-      });
-
+      }) as unknown as VehicleGraphQLResponse;
+      
       console.debug("vehicleResponse", response.data.vehicles.nodes);
 
       const vehicles = response.data.vehicles.nodes
@@ -124,9 +124,10 @@ export class DimoWrapper {
     return {vehicles};
   }
 
-  public async checkPermissions(walletAddress: string, vehicleTokenId: number): Promise<PermissionResponse> {
+  public async checkPermissions(vehicleTokenId: number): Promise<PermissionResponse> {
     const token = await this.getDeveloperToken();
     
+    console.log("Checking DIMO permissions for vehicle:", vehicleTokenId);
     try {
         // Exchange developer token for vehicle token
         const vehicleJwt = await this.dimo.tokenexchange.exchange({

@@ -27,10 +27,8 @@ async function main() {
 
     // Process each profile
     for (const profile of profiles) {
-      try {
-        console.log(`\nChecking permissions for wallet ${profile.address} and token ${profile.tokenId}`);
-        
-        const permissions = await dimoClient.checkPermissions(profile.address, profile.tokenId);
+      try {        
+        const permissions = await dimoClient.checkPermissions(profile.tokenId);
         
         permissionResults.push({
           ...profile,

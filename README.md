@@ -34,35 +34,48 @@ yarn dev
 
 ### DIMO Vehicle Integration
 
-#### Check Vehicle Ownership
+#### List Vehicles
 ```http
-GET /api/dimo/hasVehicles?walletAddress={walletAddress}
+GET /api/dimo/vehicles?walletAddress={walletAddress}
 ```
 
-Checks if a wallet address owns any DIMO vehicles.
+Lists all DIMO vehicles owned by a wallet address.
 
 **Query Parameters**
-- `walletAddress`: Ethereum address to check for vehicle ownership -- THis is the wallet address that is registered with DIMO (might be different from the wallet address that is logged in)
+- `walletAddress`: Ethereum address to check for vehicle ownership -- This is the wallet address that is registered with DIMO (might be different from the wallet address that is logged in)
+- `fields` (optional): Comma-separated list of fields to include in response (e.g., `count,hasVehicles,tokenIds`)
 
 **Response**
 ```json
+// Default response (no fields specified)
 {
-  "hasVehicles": boolean,
+  "vehicles": [
+    {
+      "owner": string,
+      "tokenId": number,
+      "manufacturer": string
+    }
+  ],
+  "count": number,
+  "walletAddress": string
+}
+
+// With fields=count,hasVehicles
+{
   "vehicleCount": number,
-  "vehicleIds": number[],
+  "hasVehicles": boolean,
   "walletAddress": string
 }
 ```
 
 #### Check Vehicle Permissions
 ```http
-GET /api/dimo/checkPermissions?walletAddress={walletAddress}&vehicleId={vehicleId}
+GET /api/dimo/vehicles/{vehicleId}/permissions
 ```
 
-Checks if a wallet address has permission to access a specific vehicle.
+Checks if the vehicle token can be accessed.
 
-**Query Parameters**
-- `walletAddress`: Ethereum address to check permissions for
+**Path Parameters**
 - `vehicleId`: DIMO vehicle token ID
 
 **Response**
@@ -70,10 +83,59 @@ Checks if a wallet address has permission to access a specific vehicle.
 {
   "hasAccess": boolean,
   "details": string (optional),
-  "walletAddress": string,
-  "vehicleTokenId": number
+  "vehicleId": number
 }
 ```
+
+#### Generate Vehicle Proof
+```http
+POST /api/dimo/vehicles/{vehicleId}/proof
+```
+
+Generates a cryptographic proof for a specific vehicle. Requires permission to access the vehicle.
+
+**Path Parameters**
+- `vehicleId`: DIMO vehicle token ID
+
+**Response**
+```json
+{
+  "vehicleId": number,
+  "proof": {
+    "signed_fields": {
+      "subject": {
+        "file_id": number,
+        "url": string,
+        "owner_address": string,
+        "decrypted_file_checksum": string,
+        "encrypted_file_checksum": string,
+        "encryption_seed": string
+      },
+      "prover": {
+        "type": string,
+        "address": string,
+        "url": string
+      },
+      "proof": {
+        "created_at": number,
+        "duration": number,
+        "dlp_id": number,
+        "valid": boolean,
+        "score": number,
+        // ... other proof details
+      }
+    },
+    "signature": string
+  },
+  "proverAddress": string,
+  "timestamp": string
+}
+```
+
+**Error Responses**
+- `403 Forbidden`: No permission to access the vehicle
+- `400 Bad Request`: Invalid vehicle ID
+- `500 Internal Server Error`: Error generating proof
 
 ### File Management (Work in Progress)
 

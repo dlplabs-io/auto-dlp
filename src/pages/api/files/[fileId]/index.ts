@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .from('files')
             .select(`
                 *,
-                owner:profiles (
+                owner:profiles_wallet (
                     public_id,
                     connected_wallet,
                     dimo_completed_value

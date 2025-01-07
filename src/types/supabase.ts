@@ -39,7 +39,7 @@ export type Database = {
             foreignKeyName: "files_ownerIdFkey_fkey"
             columns: ["ownerIdFkey"]
             isOneToOne: true
-            referencedRelation: "profiles"
+            referencedRelation: "profiles_wallet"
             referencedColumns: ["public_id"]
           },
         ]

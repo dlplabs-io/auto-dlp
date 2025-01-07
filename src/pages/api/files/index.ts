@@ -4,6 +4,8 @@ import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
 import { supabase } from '@/lib/supabase';
 import { randomUUID } from 'crypto';
 
+const PROFILES_TABLE = "profiles_wallet"
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method Not Allowed' });
@@ -37,6 +39,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(400).json({ message: 'File already exists' });
         }
 
+        // Check if profile exists
+        const profile = await supabase.from(PROFILES_TABLE).select('*').eq('connected_wallet', ownerAddress).single();
+        if (!profile.data) {
+            return res.status(400).json({ message: 'Profile not found' });
+        }
+
         // Initialize provider and contract
         const provider = new ethers.providers.JsonRpcProvider(
             process.env.RPC_ENDPOINT || 'https://rpc.moksha.vana.org'
@@ -53,10 +61,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!event) {
             throw new Error('File added but no FileAdded event found');
         }
-        const blockchainFileId = event.args.fileId.toString();
 
-        // Get owner profile if exists
-        const profile = await supabase.from("profiles").select('*').eq('connected_wallet', ownerAddress).single();
+        const blockchainFileId = event.args.fileId.toString();
 
         // Store file in database
         const { data: file, error: insertError } = await supabase
