@@ -19,7 +19,7 @@ export const GetSupabaseClient = () => {
     throw new Error('Missing SUPABASE_ANON_KEY environment variable');
   }
 
-  return createClient<Database>(
+  supabase = createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,
     {
@@ -28,4 +28,6 @@ export const GetSupabaseClient = () => {
       }
     }
   );
+
+  return supabase;
 };

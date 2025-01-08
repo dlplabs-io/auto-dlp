@@ -413,6 +413,8 @@ async function validateFileAndCalculateScore(
  */
 export async function validateFile(fileId: number | string): Promise<FileData> {
   const dimo = DimoWrapper.getInstance();
+  const supabase = GetSupabaseClient();
+
   const numericFileId = Number(fileId);
   
   // Get file from blockchain

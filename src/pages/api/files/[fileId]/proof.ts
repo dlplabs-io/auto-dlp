@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { generateProof, validateFileAndCalculateScore } from '@/lib/proofGeneration';
+import { generateProof} from '@/lib/proofGeneration';
 import { GetSupabaseClient } from '@/lib/supabase';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';

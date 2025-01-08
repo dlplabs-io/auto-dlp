@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 
 const PROFILES_TABLE = "profiles_wallet"
 
+// TODO: update this to use viem
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method Not Allowed' });
@@ -72,10 +73,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .insert({
                 id: randomUUID(),
                 blockchainFileId: blockchainFileId,
-                url: url || null,
+                url: url,
                 proof: null,
-                ownerIdFkey: profile.data?.public_id || null,
-                createdAt: new Date().toISOString()
+                ownerIdFkey: profile.data!.public_id,
+                createdAt: new Date().toISOString(),
+                txnHash: receipt.transactionHash    
             })
             .select()
             .single();
