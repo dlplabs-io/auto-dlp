@@ -38,8 +38,7 @@ export default async function handler(
       wallet: {
         address: account.address,
         privateKey: process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY
-      },
-      includeFile: false
+      }
     });
 
     // Save proof to database

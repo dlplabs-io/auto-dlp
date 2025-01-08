@@ -140,12 +140,12 @@ export function prepareProofData(
         created_at: Math.floor(Date.now() / 1000),
         duration: Math.random() * 20, // Random duration lol
         dlp_id: Number(process.env.DLP_ID),
-        score: 0,
+        score: 100,
         valid: true,
-        authenticity: 0,
-        ownership: 0,
-        quality: 0,
-        uniqueness: 0,
+        authenticity: 100,
+        ownership: 100,
+        quality: 100,
+        uniqueness: 100,
         attributes: {},
         metadata: {
           dlp_id: Number(process.env.DLP_ID) 
@@ -162,7 +162,6 @@ export function prepareProofData(
 interface GenerateProofOptions {
   fileId: string;
   wallet: any;
-  includeFile?: boolean;
 }
 
 interface GenerateProofResult {
@@ -225,41 +224,84 @@ interface VehicleIds {
   vehicleIds: number[];
 }
 
-async function fetchVehicleIds(url: string): Promise<VehicleIds> {
+interface VehicleDataResponse {
+  status: number;
+  success: boolean;
+  timestamp: string;
+  id: string;
+  fileBuffer: Buffer;
+}
+
+async function fetchVehicleData(url: string): Promise<VehicleDataResponse> {
   try {
-    const response = await fetch(url);
-    if (!response.status || response.status !== 200) {
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    
+    if (response.status !== 200) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return await response.json();
+
+    // Parse the JSON response from the buffer
+    const textDecoder = new TextDecoder();
+    const jsonString = textDecoder.decode(response.data);
+    const data = JSON.parse(jsonString);
+
+    return {
+      ...data,
+      fileBuffer: Buffer.from(response.data)
+    };
   } catch (error) {
-    console.error('Error fetching vehicle IDs:', error);
-    throw new Error('Failed to fetch vehicle IDs from URL');
+    console.error('Error fetching vehicle data:', error);
+    throw new Error('Failed to fetch vehicle data from URL');
   }
 }
 
 /**
  * Fetches the file from the blockchain and checks permissions for all vehicles in that URL
  * @param fileId the FileID of the file to validate in the data registry contract
- * @param includeFile whether to fetch and include the file buffer
  * @returns the file data and vehicle permissions
  */
-export async function validateFile(fileId: number | string, includeFile = false): Promise<FileData> {
+export async function validateFile(fileId: number | string): Promise<FileData> {
   const dimo = DimoWrapper.getInstance();
   const numericFileId = Number(fileId);
   
   // Get file from blockchain
   const onChainFile = await getFileFromContract(numericFileId);
   
-  // Fetch vehicle IDs from the URL -- TODO: doesn't work
-  const vehicleData = await fetchVehicleIds(onChainFile.url);
+  // Fetch vehicle Data from the URL
+  const vehicleData = await fetchVehicleData(onChainFile.url);
   
+  if (!vehicleData.status || vehicleData.status !== 200) {
+    console.log(vehicleData);
+    throw new Error(`Failed to fetch vehicle data from URL`);
+  } 
+
+  // The URL contains a Public ID that we can use to query the DB for the entire record
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles_wallet')
+    .select('*')
+    .eq('public_id', vehicleData.id)
+    .single();
+
+  if (profileError) {
+    throw new Error(`Failed to fetch profile from database: ${profileError.message}`);
+  } 
+
+  if (!profile || !profile.dimo_completed_wallet) {
+    throw new Error(`Profile: ${vehicleData.id} has connected their dimo account`);
+  }
+
+  // Get the list of Vehicles for the the connected profile
+  const vehiclesResponse = await dimo.getVehicles(profile.dimo_completed_wallet);
+  if (vehiclesResponse.vehicles.length === 0) {
+    throw new Error(`No vehicles found for profile: ${vehicleData.id}`);
+  }
+
   // Check permissions for all vehicles
   const deniedVehicles: number[] = [];
-  for (const vehicleId of vehicleData.vehicleIds) {
-    const hasPermission = await dimo.checkPermissions(vehicleId);
+  for (const vehicle of vehiclesResponse.vehicles) {
+    const hasPermission = await dimo.checkPermissions(vehicle.tokenId);
     if (!hasPermission) {
-      deniedVehicles.push(vehicleId);
+      deniedVehicles.push(vehicle.tokenId);
     }
   }
 
@@ -267,19 +309,12 @@ export async function validateFile(fileId: number | string, includeFile = false)
     throw new Error(`No permission for vehicles: ${deniedVehicles.join(', ')}`);
   }
 
-  // Get file buffer if needed
-  let fileBuffer: Buffer | undefined;
-  if (includeFile) {
-    const response = await axios.get(onChainFile.url, { responseType: 'arraybuffer' });
-    fileBuffer = Buffer.from(response.data);
-  }
-
   return {
     blockchainFileId: numericFileId,
     url: onChainFile.url,
     ownerAddress: onChainFile.owner,
     onChainFile,
-    fileBuffer
+    fileBuffer: vehicleData.fileBuffer
   };
 }
 
@@ -289,7 +324,7 @@ export async function validateFile(fileId: number | string, includeFile = false)
  * @param wallet the wallet to sign the proof 
  * @returns 
  */
-export async function generateProof({ fileId, wallet, includeFile = false }: GenerateProofOptions): Promise<GenerateProofResult> {
+export async function generateProof({ fileId, wallet }: GenerateProofOptions): Promise<GenerateProofResult> {
   const dlpId = process.env.DLP_ID;
   if (!dlpId) {
     throw new Error('DLP ID not configured');
@@ -309,7 +344,7 @@ export async function generateProof({ fileId, wallet, includeFile = false }: Gen
   });
 
   // Get and validate file
-  const fileData = await validateFile(fileId, includeFile);
+  const fileData = await validateFile(fileId);
 
   // Prepare the proof data
   const unsignedProof = prepareProofData(
@@ -340,7 +375,6 @@ export async function generateProof({ fileId, wallet, includeFile = false }: Gen
     }
   };
 }
-
 
 export async function signProof(
   proof: SignedProof, 
