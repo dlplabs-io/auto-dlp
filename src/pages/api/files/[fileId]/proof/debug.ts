@@ -28,8 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Generate proof with file details included
         const proofResult = await generateProof({ 
             fileId: fileId.toString(), 
-            wallet, 
-            includeFile: true 
+            privateKey: wallet.privateKey
         });
 
         return res.status(200).json({

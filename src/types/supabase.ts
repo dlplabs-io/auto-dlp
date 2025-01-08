@@ -14,31 +14,34 @@ export type Database = {
           blockchainFileId: number
           createdAt: string | null
           id: string
-          ownerIdFkey: string | null
+          ownerIdFkey: string
           proof: string | null
-          url: string | null
+          txnHash: string
+          url: string
         }
         Insert: {
           blockchainFileId: number
           createdAt?: string | null
-          id: string
-          ownerIdFkey?: string | null
+          id?: string
+          ownerIdFkey: string
           proof?: string | null
-          url?: string | null
+          txnHash: string
+          url: string
         }
         Update: {
           blockchainFileId?: number
           createdAt?: string | null
           id?: string
-          ownerIdFkey?: string | null
+          ownerIdFkey?: string
           proof?: string | null
-          url?: string | null
+          txnHash?: string
+          url?: string
         }
         Relationships: [
           {
             foreignKeyName: "files_ownerIdFkey_fkey"
             columns: ["ownerIdFkey"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "profiles_wallet"
             referencedColumns: ["public_id"]
           },

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '@/lib/supabase';
+import { GetSupabaseClient } from '@/lib/supabase';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'GET') {
@@ -11,6 +11,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!fileId) {
         return res.status(400).json({ message: 'File ID is required' });
     }
+
+    const supabase = GetSupabaseClient();
 
     try {
         // Get file with owner profile information

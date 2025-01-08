@@ -10,8 +10,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check": "npx tsx scripts/checkDimoVehicles.ts",
-    "permissions": "npx tsx scripts/checkPermissions.ts",
+    "get:vehicles": "npx tsx scripts/getDimoVehicles.ts",
+    "get:permissions": "npx tsx scripts/getPermissions.ts",
+    "get:files": "npx tsx scripts/getRegistryFiles.ts",
+    "update:files": "npx tsx scripts/updateRegistryFiles.ts",
+    "generate:proofs": "npx tsx scripts/generateProofs.ts",
+    "format:proofs": "npx tsx scripts/formatProofs.ts",
     "types:supabase": "npx supabase gen types typescript --project-id qdggrozfyfzfzkhthwuv > src/types/supabase.ts"
   },
   "dependencies": {

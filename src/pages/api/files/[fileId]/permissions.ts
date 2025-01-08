@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { ethers } from 'ethers';
 import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
-import { supabase } from '@/lib/supabase';
+import { GetSupabaseClient } from '@/lib/supabase';
 
 
 /**
@@ -31,6 +31,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!walletPrivateKey) {
         return res.status(500).json({ message: 'Wallet private key not configured' });
     }
+    
+    const supabase = GetSupabaseClient();
 
     try {
         // Check if file exists

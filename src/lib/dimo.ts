@@ -108,7 +108,7 @@ export class DimoWrapper {
         query: queryString
       }) as unknown as VehicleGraphQLResponse;
       
-      console.debug("vehicleResponse", response.data.vehicles.nodes);
+      // console.debug("vehicleResponse", response.data.vehicles.nodes);
 
       const vehicles = response.data.vehicles.nodes
         .filter((vehicle: SingleVehicleGraphQLResponse) => vehicle.tokenId !== 0)
@@ -142,7 +142,7 @@ export class DimoWrapper {
         }
           
     } catch(error) { 
-        console.error('Error exchanging developer token for vehicle token:', error);
+        console.error('Error exchanging developer token for vehicle token:', (error as DimoError).body.message);
         return { hasAccess: false, details: (error as DimoError).body.message };
     }
   }

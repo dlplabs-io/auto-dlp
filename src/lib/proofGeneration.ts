@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import axios from 'axios';
-import { supabase } from './supabase';
+import { GetSupabaseClient } from './supabase';
 import { DimoWrapper } from './dimo';
 import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
 import { 
@@ -10,7 +10,8 @@ import {
   getContract,
   Account,
   toHex,
-  recoverMessageAddress
+  recoverMessageAddress,
+  PrivateKeyAccount
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { vanaChain } from './chains';
@@ -50,12 +51,12 @@ export interface ProofDetails {
   duration: number;
   dlp_id: number;
   valid: boolean;
-  score: number;
-  authenticity: number;
-  ownership: number;
-  quality: number;
-  uniqueness: number;
-  attributes: Record<string, any>;
+  score: number;  // A score between 0 and 1 for the file, used to determine how valuable the file is. This can be an aggregation of the individual scores below.
+  authenticity: number; // A score between 0 and 1 to rate if the file has been tampered with
+  ownership: number; // A score between 0 and 1 to verify the ownership of the file
+  quality: number; // A score between 0 and 1 to show the quality of the file
+  uniqueness: number; // A score between 0 and 1 to show unique the file is, compared to others in the DLP
+  attributes: Record<string, any>;  // Custom attributes that can be added to the proof to provide extra context about the encrypted file
   metadata: {
     dlp_id: number;
   };
@@ -100,12 +101,7 @@ export function generateFileChecksums(fileBuffer: Buffer): {
 }
 
 export function prepareProofData(
-  fileDetails: {
-    fileId: number;
-    url: string;
-    ownerAddress: string;
-    fileBuffer?: Buffer;
-  },
+  fileDetails: FileDataWithScore,
   proverDetails: {
     address?: string;
     url?: string;
@@ -123,7 +119,7 @@ export function prepareProofData(
   const proofData: SignedProof = {
     signed_fields: {
       subject: {
-        file_id: fileDetails.fileId,
+        file_id: fileDetails.blockchainFileId,
         url: fileDetails.url,
         owner_address: fileDetails.ownerAddress,
         decrypted_file_checksum: checksums.decrypted_checksum,
@@ -136,16 +132,16 @@ export function prepareProofData(
         url: proverDetails.url || 'dlplabs.io'
       },
       proof: {
-        image_url: 'dlplabs.io',
+        image_url: 'dlplabs.io/prover',
         created_at: Math.floor(Date.now() / 1000),
         duration: Math.random() * 20, // Random duration lol
         dlp_id: Number(process.env.DLP_ID),
-        score: 100,
+        score: fileDetails.score/100,
         valid: true,
-        authenticity: 100,
-        ownership: 100,
-        quality: 100,
-        uniqueness: 100,
+        authenticity: 100 / 100,  //authentic and not tampered with.
+        ownership: 100 / 100, // data contributor owns the data they are submitting.
+        quality: fileDetails.score / 100, // data is of high quality
+        uniqueness: 100 / 100, // submitted data is unique and not duplicated.
         attributes: {},
         metadata: {
           dlp_id: Number(process.env.DLP_ID) 
@@ -161,15 +157,11 @@ export function prepareProofData(
 
 interface GenerateProofOptions {
   fileId: string;
-  wallet: any;
+  privateKey: string;
 }
 
 interface GenerateProofResult {
-  file?: {
-    id: string;
-    url: string;
-    ownerAddress: string;
-  };
+  fileData: FileDataWithScore;
   unsignedProof: SignedProof;
   signedProof: SignedProof;
   debug: {
@@ -185,6 +177,12 @@ interface FileData {
   ownerAddress: string;
   onChainFile?: OnChainFile;
   fileBuffer?: Buffer;
+}
+
+interface FileDataWithScore extends FileData {
+  score: number;
+  isValid: boolean;
+  message: string;
 }
 
 interface OnChainFile {
@@ -255,6 +253,159 @@ async function fetchVehicleData(url: string): Promise<VehicleDataResponse> {
   }
 }
 
+export function getAttributesFromScore(score: number) : string[] {
+  let attributes: string[] = []
+  if (score == 0) {
+    return attributes;
+  }
+
+  if (score >= 0.25) {
+    attributes.push("dimoWallet");
+  }
+
+  if (score >= 0.50) {
+    attributes.push("vehicles");
+  }
+
+  if (score >= 0.90 && score < 1) {
+    attributes.push("someVehicles");
+  }
+
+  if (score == 1) {
+    attributes.push("allVehicles");
+  }
+    
+  return attributes;
+}
+
+function calculateProofScore(profile: any, vehicles: any[], permissions: { [key: number]: boolean }): number {
+  // No dimo_completed_wallet
+  if (!profile.dimo_completed_wallet) {
+    return 0;
+  }
+
+  // Has wallet but no vehicles
+  if (vehicles.length === 0) {
+    return 25;
+  }
+
+  // Count vehicles with permissions
+  const vehiclesWithPermissions = vehicles.filter(v => permissions[v.tokenId]);
+  
+  // Has vehicles but none have permissions
+  if (vehiclesWithPermissions.length === 0) {
+    return 50;
+  }
+
+  // Single vehicle with permissions
+  if (vehicles.length === 1 && vehiclesWithPermissions.length === 1) {
+    return 100;
+  }
+
+  // Multiple vehicles
+  if (vehicles.length > 1) {
+    // Base score for first vehicle with permissions
+    let score = 90;
+    
+    // Calculate additional points for remaining vehicles
+    const remainingVehicles = vehicles.length - 1;
+    const remainingVehiclesWithPermissions = vehiclesWithPermissions.length - 1;
+    const pointsPerVehicle = 10 / remainingVehicles;
+    
+    score += pointsPerVehicle * remainingVehiclesWithPermissions;
+    
+    return Math.min(100, score);
+  }
+
+  return 50; // Default case for single vehicle without permissions
+}
+
+/**
+ * Fetches the file from the blockchain, and scores it based on the vehicle permissions
+ * @param fileId the FileID of the file to validate in the data registry contract
+ * @returns the file data and score
+ */
+async function validateFileAndCalculateScore(
+  fileId: string,
+): Promise<FileDataWithScore> {
+  try {
+    const dimo = DimoWrapper.getInstance();
+    const supabase = GetSupabaseClient();
+    
+    // Get file details from contract
+    const fileDetails = await getFileFromContract(Number(fileId));
+    if (!fileDetails) {
+      return {
+        blockchainFileId: Number(fileId),
+        isValid: false,
+        url: '',
+        ownerAddress: '',
+        score: 0,
+        message: 'File not found'
+      };
+    }
+
+    const vehicleData = await fetchVehicleData(fileDetails.url);
+
+    // Get profile from DB using the Public ID from the API response
+    const { data: profile } = await supabase
+      .from('profiles_wallet')
+      .select('*')
+      .eq('public_id', vehicleData.id)
+      .single();
+
+    // Early return if no wallet
+    if (!profile?.dimo_completed_wallet) {
+      return {
+        blockchainFileId: Number(fileId),
+        isValid: false,
+        url: fileDetails.url,
+        ownerAddress: fileDetails.owner,
+        score: 0,
+        message: 'No DIMO wallet connected'
+      };
+    }
+
+    // Get vehicles for the wallet
+    const vehicleResponse = await dimo.getVehicles(profile.dimo_completed_wallet);
+    const vehicles = vehicleResponse.vehicles.filter(v => v.tokenId !== 0);
+
+    // Get permissions for each vehicle
+    const permissions: { [key: number]: boolean } = {};
+    await Promise.all(
+      vehicles.map(async (vehicle) => {
+        const permissionResponse = await dimo.checkPermissions(vehicle.tokenId);
+        permissions[vehicle.tokenId] = permissionResponse.hasAccess;
+      })
+    );
+
+    // Calculate score
+    const score = calculateProofScore(profile, vehicles, permissions);
+
+    // Get file buffer    
+    return {
+      blockchainFileId: Number(fileId),
+      url: fileDetails.url,
+      ownerAddress: fileDetails.owner,
+      isValid: score >= 50, // Valid if score is at least 50
+      score,
+      fileBuffer: vehicleData.fileBuffer,
+      message: score < 50 ? 'Insufficient permissions or vehicles' : ""
+    };
+
+  } catch (error) {
+    console.error('Error validating file:', error);
+    return {
+      blockchainFileId: Number(fileId),
+      url: '',
+      ownerAddress: '',
+      isValid: false,
+      score: 0,
+      message: 'Error validating file'
+    };
+  }
+}
+
 /**
  * Fetches the file from the blockchain and checks permissions for all vehicles in that URL
  * @param fileId the FileID of the file to validate in the data registry contract
@@ -319,12 +470,12 @@ export async function validateFile(fileId: number | string): Promise<FileData> {
 }
 
 /**
- * Fetches the fileId from the data registry contract, generates a proof, and signs it using @param wallet
+ * Fetches the fileId from the data registry contract, checks permissions for all vehicles using the DIMO api, and generates a proof, and signs it using @param wallet
  * @param fileId the FileID of the file to validate in the data registry contract
  * @param wallet the wallet to sign the proof 
  * @returns 
  */
-export async function generateProof({ fileId, wallet }: GenerateProofOptions): Promise<GenerateProofResult> {
+export async function generateProof({ fileId, privateKey }: GenerateProofOptions): Promise<GenerateProofResult> {
   const dlpId = process.env.DLP_ID;
   if (!dlpId) {
     throw new Error('DLP ID not configured');
@@ -336,24 +487,14 @@ export async function generateProof({ fileId, wallet }: GenerateProofOptions): P
   }
 
   // Create a wallet client for signing
-  const account = privateKeyToAccount(wallet.privateKey as `0x${string}`);
-  const walletClient = createWalletClient({
-    account,
-    chain: vanaChain,
-    transport: http(process.env.RPC_ENDPOINT)
-  });
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
 
   // Get and validate file
-  const fileData = await validateFile(fileId);
+  const fileData = await validateFileAndCalculateScore(fileId);
 
   // Prepare the proof data
   const unsignedProof = prepareProofData(
-    {
-      fileId: fileData.blockchainFileId,
-      url: fileData.url,
-      ownerAddress: fileData.ownerAddress,
-      fileBuffer: fileData.fileBuffer
-    },
+    fileData,
     {
       address: account.address, // signer address
       url: process.env.BASE_URL // prover url (DLP hostname)
@@ -361,11 +502,11 @@ export async function generateProof({ fileId, wallet }: GenerateProofOptions): P
   );
 
   // Sign the proof
-  const signedProof = await signProof(unsignedProof, wallet.privateKey);
+  const signedProof = await signProof(unsignedProof, account);
 
   // Return result
   return {
-    ...fileData,
+    fileData,
     unsignedProof,
     signedProof,
     debug: {
@@ -378,10 +519,9 @@ export async function generateProof({ fileId, wallet }: GenerateProofOptions): P
 
 export async function signProof(
   proof: SignedProof, 
-  privateKey: string
+  account: PrivateKeyAccount
 ): Promise<SignedProof> {
   try {
-    const account = privateKeyToAccount(privateKey as `0x${string}`);
     const message = JSON.stringify(proof.signed_fields);
     const signature = await account.signMessage({ message });
     

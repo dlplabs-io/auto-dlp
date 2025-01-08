@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { generateProof } from '@/lib/proofGeneration';
-import { supabase } from '@/lib/supabase';
+import { generateProof, validateFileAndCalculateScore } from '@/lib/proofGeneration';
+import { GetSupabaseClient } from '@/lib/supabase';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { vanaChain } from '@/lib/chains';
@@ -19,26 +19,18 @@ export default async function handler(
     return res.status(400).json({ error: 'fileId is required in the path' });
   }
 
+  const supabase = GetSupabaseClient();
+
   try {
     // Initialize wallet for signing
     if (!process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY) {
       throw new Error('DATA_REGISTRY_WALLET_PRIVATE_KEY not configured');
     }
 
-    const account = privateKeyToAccount(process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY as `0x${string}`);
-    const walletClient = createWalletClient({
-      account,
-      chain: vanaChain,
-      transport: http(process.env.RPC_ENDPOINT)
-    });
-
     // Generate proof
     const proof = await generateProof({
       fileId,
-      wallet: {
-        address: account.address,
-        privateKey: process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY
-      }
+      privateKey: process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY
     });
 
     // Save proof to database
