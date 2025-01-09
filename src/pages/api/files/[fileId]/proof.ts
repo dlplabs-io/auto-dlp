@@ -23,14 +23,14 @@ export default async function handler(
 
   try {
     // Initialize wallet for signing
-    if (!process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY) {
-      throw new Error('DATA_REGISTRY_WALLET_PRIVATE_KEY not configured');
+    if (!process.env.PROVER_PRIVATE_KEY) {
+      throw new Error('PROVER_PRIVATE_KEY not configured');
     }
 
     // Generate proof
     const proof = await generateProof({
       fileId,
-      privateKey: process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY
+      privateKey: process.env.PROVER_PRIVATE_KEY
     });
 
     // Save proof to database

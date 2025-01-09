@@ -29,8 +29,12 @@ async function updateSupabaseFiles(supabase: SupabaseClient<Database>, files: Fi
     txnHash: file.transactionHash,
     createdAt: file.createdAt,
     proof : null,
+    is_onchain: false,
+    proof_txn: null,
+    relay_url: null
   }));
 
+  // Maybe this should be insert?
   const { data, error } = await supabase
     .from('files')
     .upsert(updates, {

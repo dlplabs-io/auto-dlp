@@ -2,31 +2,22 @@ import * as fs from 'fs/promises';
 import dotenv from 'dotenv';
 dotenv.config();
 
-import {getAttributesFromScore, ProofDetails} from '@/lib/proofGeneration';
+import { FormattedProof, ProofData } from '@/types';
+import { getAttributesFromScore } from '@/lib/proofGeneration';
 
 interface VerboseProof {
-  proof: {
-    signed_fields: {
-      proof: ProofDetails;
-    };
-    signature: string;
-  };
   fileId: string;
+  proof: {
+    signature: string;
+    signed_fields: {
+      proof: {
+        score: number;
+        dlp_id: number;
+        created_at: number;
+      }
+    }
+  }
 }
-interface ProofData {
-  score: number;
-  dlpId: number;
-  metadata: string;
-  proofUrl: string;
-  instruction: string;
-}
-
-interface FormattedProof {
-  fileId: number;
-  signature: string;
-  data: ProofData;
-}
-
 
 async function main() {
   try {

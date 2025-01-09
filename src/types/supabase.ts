@@ -14,8 +14,11 @@ export type Database = {
           blockchainFileId: number
           createdAt: string | null
           id: string
+          is_onchain: boolean
           ownerIdFkey: string
-          proof: string | null
+          proof: Json | null
+          proof_txn: string | null
+          relay_url: string | null
           txnHash: string
           url: string
         }
@@ -23,8 +26,11 @@ export type Database = {
           blockchainFileId: number
           createdAt?: string | null
           id?: string
+          is_onchain?: boolean
           ownerIdFkey: string
-          proof?: string | null
+          proof?: Json | null
+          proof_txn?: string | null
+          relay_url?: string | null
           txnHash: string
           url: string
         }
@@ -32,8 +38,11 @@ export type Database = {
           blockchainFileId?: number
           createdAt?: string | null
           id?: string
+          is_onchain?: boolean
           ownerIdFkey?: string
-          proof?: string | null
+          proof?: Json | null
+          proof_txn?: string | null
+          relay_url?: string | null
           txnHash?: string
           url?: string
         }

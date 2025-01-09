@@ -1,75 +1,29 @@
 import crypto from 'crypto';
-import axios from 'axios';
-import { GetSupabaseClient } from './supabase';
-import { DimoWrapper } from './dimo';
-import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
-import { 
-  createPublicClient, 
-  http,
-  createWalletClient,
-  getContract,
-  Account,
-  toHex,
-  recoverMessageAddress,
-  PrivateKeyAccount
-} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { vanaChain } from './chains';
+import { createPublicClient, http, getContract, PrivateKeyAccount, recoverMessageAddress} from 'viem';
+import axios from 'axios';
 
-type FileResponse = {
-  id: bigint;
-  ownerAddress: string;
-  url: string;
-  addedAtBlock: bigint;
-}
+import { vanaChain } from '@/lib/chains';
+import { DimoWrapper} from '@/lib/dimo';
+import { GetSupabaseClient } from '@/lib/supabase';
+import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
+import { ENV } from '@/config/env';
+import { 
+  FileData, 
+  FileDataWithScore, 
+  OnChainFile, 
+  ProofDetails, 
+  SignedProof, 
+  GenerateProofResult, 
+  GenerateProofOptions,
+  FileResponse
+} from '@/types';
 
 // Create a public client for reading from the blockchain
 const publicClient = createPublicClient({
   chain: vanaChain,
-  transport: http(process.env.RPC_ENDPOINT)
+  transport: http(ENV.RPC_ENDPOINT)
 });
-
-// Interfaces to define the proof structure
-export interface ProofSubject {
-  file_id: number;
-  url: string;
-  owner_address: string;
-  decrypted_file_checksum: string;
-  encrypted_file_checksum: string;
-  encryption_seed: string;
-}
-
-export interface ProofProver {
-  type: string;
-  address: string;
-  url: string;
-}
-
-export interface ProofDetails {
-  image_url: string;
-  created_at: number;
-  duration: number;
-  dlp_id: number;
-  valid: boolean;
-  score: number;  // A score between 0 and 1 for the file, used to determine how valuable the file is. This can be an aggregation of the individual scores below.
-  authenticity: number; // A score between 0 and 1 to rate if the file has been tampered with
-  ownership: number; // A score between 0 and 1 to verify the ownership of the file
-  quality: number; // A score between 0 and 1 to show the quality of the file
-  uniqueness: number; // A score between 0 and 1 to show unique the file is, compared to others in the DLP
-  attributes: Record<string, any>;  // Custom attributes that can be added to the proof to provide extra context about the encrypted file
-  metadata: {
-    dlp_id: number;
-  };
-}
-
-export interface SignedProof {
-  signed_fields: {
-    subject: ProofSubject;
-    prover: ProofProver;
-    proof: ProofDetails;
-  };
-  signature: string;
-}
 
 // Utility function to generate file checksums
 export function generateFileChecksums(fileBuffer: Buffer): { 
@@ -135,7 +89,7 @@ export function prepareProofData(
         image_url: 'dlplabs.io/prover',
         created_at: Math.floor(Date.now() / 1000),
         duration: Math.random() * 20, // Random duration lol
-        dlp_id: Number(process.env.DLP_ID),
+        dlp_id: Number(ENV.DLP_ID),
         score: fileDetails.score/100,
         valid: true,
         authenticity: 100 / 100,  //authentic and not tampered with.
@@ -144,7 +98,7 @@ export function prepareProofData(
         uniqueness: 100 / 100, // submitted data is unique and not duplicated.
         attributes: {},
         metadata: {
-          dlp_id: Number(process.env.DLP_ID) 
+          dlp_id: Number(ENV.DLP_ID) 
         },
         ...proofMetadata
       }
@@ -155,47 +109,10 @@ export function prepareProofData(
   return proofData;
 }
 
-interface GenerateProofOptions {
-  fileId: string;
-  privateKey: string;
-}
-
-interface GenerateProofResult {
-  fileData: FileDataWithScore;
-  unsignedProof: SignedProof;
-  signedProof: SignedProof;
-  debug: {
-    hasEncryptionKey: boolean;
-    proverAddress: string;
-    dlpId: number;
-  };
-}
-
-interface FileData {
-  blockchainFileId: number;
-  url: string;
-  ownerAddress: string;
-  onChainFile?: OnChainFile;
-  fileBuffer?: Buffer;
-}
-
-interface FileDataWithScore extends FileData {
-  score: number;
-  isValid: boolean;
-  message: string;
-}
-
-interface OnChainFile {
-  url: string;
-  owner: string;
-  onBlock: bigint
-  fileId: bigint
-}
-
 async function getFileFromContract(fileId: number): Promise<OnChainFile> {
   try {
     const contract = getContract({
-      address: process.env.DATAREGISTRY_CONTRACT_ADDRESS as `0x${string}`,
+      address: ENV.DATAREGISTRY_CONTRACT_ADDRESS as `0x${string}`,
       abi: DATA_REGISTRY_ABI,
       client: publicClient,
     });
@@ -478,12 +395,12 @@ export async function validateFile(fileId: number | string): Promise<FileData> {
  * @returns 
  */
 export async function generateProof({ fileId, privateKey }: GenerateProofOptions): Promise<GenerateProofResult> {
-  const dlpId = process.env.DLP_ID;
+  const dlpId = ENV.DLP_ID;
   if (!dlpId) {
     throw new Error('DLP ID not configured');
   }
 
-  const encryptionSeed = process.env.ENCRYPTION_SEED;
+  const encryptionSeed = ENV.ENCRYPTION_SEED;
   if (!encryptionSeed) {
     throw new Error('Encryption seed not configured');
   }
@@ -499,7 +416,7 @@ export async function generateProof({ fileId, privateKey }: GenerateProofOptions
     fileData,
     {
       address: account.address, // signer address
-      url: process.env.BASE_URL // prover url (DLP hostname)
+      url: ENV.BASE_URL // prover url (DLP hostname)
     }
   );
 
@@ -514,7 +431,7 @@ export async function generateProof({ fileId, privateKey }: GenerateProofOptions
     debug: {
       hasEncryptionKey: true,
       proverAddress: account.address,
-      dlpId: parseInt(dlpId)
+      dlpId: Number(dlpId)
     }
   };
 }

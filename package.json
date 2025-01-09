@@ -16,6 +16,8 @@
     "update:files": "npx tsx scripts/updateRegistryFiles.ts",
     "generate:proofs": "npx tsx scripts/generateProofs.ts",
     "format:proofs": "npx tsx scripts/formatProofs.ts",
+    "submit:proofs": "npx tsx scripts/submitProofs.ts",
+    "save:proofs": "npx tsx scripts/saveProofs.ts",
     "types:supabase": "npx supabase gen types typescript --project-id qdggrozfyfzfzkhthwuv > src/types/supabase.ts"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
     "@dimo-network/login-with-dimo": "^0.0.12",
     "@emotion/react": "^11.11.0",
     "@emotion/styled": "^11.11.0",
+    "@gelatonetwork/relay-sdk-viem": "^1.2.0",
     "@supabase/supabase-js": "^2.47.6",
     "@types/jsonwebtoken": "^9.0.7",
     "axios": "^1.7.9",

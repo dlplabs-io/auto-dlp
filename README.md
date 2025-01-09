@@ -20,8 +20,9 @@ Required environment variables:
 - `DIMO_CLIENT_ID`: Your DIMO client ID
 - `DIMO_API_KEY`: Your DIMO API key
 - `DATAREGISTRY_CONTRACT_ADDRESS`: Ethereum contract address for the data registry
-- `DATA_REGISTRY_WALLET_PRIVATE_KEY`: Private key for the wallet that will interact with the contract
+- `DLP_OPERATOR_PRIVATE_KEY`: Private key for the wallet that will interact with the contract
 - `DLP_ID`: Your DLP ID
+- `PROVER_PRIVATE_KEY`: Private key for the wallet that will sign the proof
 - `SUPABASE_URL`: Your Supabase project URL
 - `SUPABASE_ANON_KEY`: Your Supabase service role key
 

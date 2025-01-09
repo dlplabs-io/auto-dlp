@@ -1,14 +1,16 @@
+import { createPublicClient, http, parseAbiItem, PublicClient, decodeEventLog, toEventHash } from 'viem';
+import { vanaChain } from '@/lib/chains';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/types/supabase';
+import { config } from 'dotenv';
+import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
+import { ENV } from '@/config/env';
 import dotenv from "dotenv";
 dotenv.config();
 
-import { createPublicClient, http, parseAbiItem, PublicClient, decodeEventLog, toEventHash } from 'viem';
-import { vanaChain } from '@/lib/chains';
-import { GetSupabaseClient } from "@/lib/supabase";
-import { Database } from "@/types/supabase";
 
 import axios from 'axios';
 import * as fs from 'fs/promises';
-
 
 interface GelatoRelayResponse {
   task: {
@@ -22,12 +24,6 @@ interface GelatoRelayResponse {
     gasUsed: string;
     effectiveGasPrice: string;
   }
-}
-
-interface FileAddedEvent {
-  fileId: bigint;
-  ownerAddress: string;
-  url: string;
 }
 
 async function processProfile(profile: any, client: PublicClient) {
@@ -90,7 +86,10 @@ async function processProfile(profile: any, client: PublicClient) {
 async function main() {
   try {
 
-    const supabase = GetSupabaseClient();
+    const supabase = createClient<Database>(
+      ENV.SUPABASE_URL,
+      ENV.SUPABASE_ACCESS_TOKEN
+    );
   
     // Get all profiles with relay URLs
     const { data: profiles, error } = await supabase
@@ -107,7 +106,7 @@ async function main() {
     // Initialize viem client
     const client = createPublicClient({
       chain: vanaChain,
-      transport: http(process.env.RPC_ENDPOINT)
+      transport: http(ENV.RPC_ENDPOINT)
     });
 
     // Process all profiles in parallel with a concurrency limit

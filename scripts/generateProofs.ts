@@ -1,35 +1,25 @@
+import fs from 'fs/promises';
+import { GetSupabaseClient } from '@/lib/supabase';
+import { generateProof } from '@/lib/proofGeneration';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '@/types/supabase';
+import { FileEvent } from '@/types';
+
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { SupabaseClient } from "@supabase/supabase-js";
-import { Database } from "@/types/supabase";
-import * as fs from 'fs/promises';
 import { createWalletClient, http, WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { vanaChain } from '@/lib/chains';
-import { generateProof } from '@/lib/proofGeneration';
-import { GetSupabaseClient } from '@/lib/supabase';
-
-
-interface FileEvent {
-  fileId: string;
-  ownerAddress: string;
-  url: string;
-  transactionHash: string;
-  blockNumber: number;
-  profileId: string;
-  createdAt: string;
-}
 
 async function generateAndSaveProof(
   fileId: string, 
   supabase: SupabaseClient<Database>,
-  walletClient: WalletClient
 ) {
   try {
     
     const proof = await generateProof(
-      { fileId: fileId, privateKey: process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY! },
+      { fileId: fileId, privateKey: process.env.PROVER_PRIVATE_KEY! },
     );
 
     if (!proof) {
@@ -68,14 +58,6 @@ async function main() {
 
     console.log(`Found ${files.length} files to process`);
 
-    // Initialize wallet client
-    const account = privateKeyToAccount(process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY as `0x${string}`);
-    const walletClient = createWalletClient({
-      account,
-      chain: vanaChain,
-      transport: http(process.env.RPC_ENDPOINT)
-    });
-
     // Process files in batches
     const BATCH_SIZE = 20;
     const results = [];
@@ -86,7 +68,7 @@ async function main() {
       console.log(`\nProcessing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(files.length / BATCH_SIZE)}`);
       
       const batchPromises = batch.map(file => 
-        generateAndSaveProof(file.fileId, supabase, walletClient)
+        generateAndSaveProof(file.fileId, supabase)
       );
       
       const batchResults = await Promise.all(batchPromises);

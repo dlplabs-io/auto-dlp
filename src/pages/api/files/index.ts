@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ message: 'Contract address not configured' });
     }
 
-    const walletPrivateKey = process.env.DATA_REGISTRY_WALLET_PRIVATE_KEY;
+    const walletPrivateKey = process.env.DLP_OPERATOR_PRIVATE_KEY;
     if (!walletPrivateKey) {
         return res.status(500).json({ message: 'Wallet private key not configured' });
     }

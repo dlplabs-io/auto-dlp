@@ -1,9 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
-
+import { ENV } from '@/config/env';
 
 let supabase: SupabaseClient<Database>;
-
 
 /**
  * Uses the Supabase client if it is already initialized, otherwise creates a new one.
@@ -12,16 +11,10 @@ let supabase: SupabaseClient<Database>;
 export const GetSupabaseClient = () => {
   if (supabase) return supabase;
 
-  if (!process.env.SUPABASE_URL) {
-    throw new Error('Missing SUPABASE_URL environment variable');
-  }
-  if (!process.env.SUPABASE_ANON_KEY) {
-    throw new Error('Missing SUPABASE_ANON_KEY environment variable');
-  }
-
+  console.log('env', ENV.SUPABASE_URL, ENV.SUPABASE_ANON_KEY);
   supabase = createClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    ENV.SUPABASE_URL,
+    ENV.SUPABASE_ANON_KEY,
     {
       auth: {
         persistSession: false
