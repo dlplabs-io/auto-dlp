@@ -21,6 +21,7 @@ export type Database = {
           relay_url: string | null
           txnHash: string
           url: string
+          verbose_proof: Json | null
         }
         Insert: {
           blockchainFileId: number
@@ -33,6 +34,7 @@ export type Database = {
           relay_url?: string | null
           txnHash: string
           url: string
+          verbose_proof?: Json | null
         }
         Update: {
           blockchainFileId?: number
@@ -45,6 +47,7 @@ export type Database = {
           relay_url?: string | null
           txnHash?: string
           url?: string
+          verbose_proof?: Json | null
         }
         Relationships: [
           {
