@@ -11,7 +11,6 @@ let supabase: SupabaseClient<Database>;
 export const GetSupabaseClient = () => {
   if (supabase) return supabase;
 
-  console.log('env', ENV.SUPABASE_URL, ENV.SUPABASE_ANON_KEY);
   supabase = createClient<Database>(
     ENV.SUPABASE_URL,
     ENV.SUPABASE_ANON_KEY,

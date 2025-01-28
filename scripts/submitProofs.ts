@@ -173,7 +173,9 @@ async function main() {
 
         await submitProof(parsedProof, supabase);
         // Add a small delay between submissions
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        console.log("Waiting 5 seconds before submitting next");
+        await new Promise(resolve => setTimeout(resolve, 5000));
       } catch (error) {
         console.error(`Error processing proof for file ${file.blockchainFileId}:`, error);
         continue;
