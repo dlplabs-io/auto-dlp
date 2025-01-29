@@ -18,6 +18,7 @@
     "format:proofs": "npx tsx scripts/formatProofs.ts",
     "submit:proofs": "npx tsx scripts/submitProofs.ts",
     "save:proofs": "npx tsx scripts/saveProofs.ts",
+    "check:pending-vehicles": "npx tsx scripts/checkOffChainVehicles.ts",
     "types:supabase": "npx supabase gen types typescript --project-id qdggrozfyfzfzkhthwuv > src/types/supabase.ts"
   },
   "dependencies": {
