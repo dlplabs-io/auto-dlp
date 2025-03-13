@@ -31,7 +31,8 @@ async function updateSupabaseFiles(supabase: SupabaseClient<Database>, files: Fi
     proof : null,
     is_onchain: false,
     proof_txn: null,
-    relay_url: null
+    relay_url: null,
+    verbose_proof: null
   }));
 
   // Maybe this should be insert?

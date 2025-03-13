@@ -23,3 +23,8 @@ export const GetSupabaseClient = () => {
 
   return supabase;
 };
+
+export const ACCOUNTS_TABLE = 'accounts';
+export const FILES_TABLE = 'files';
+export const FILES_OLD_TABLE = 'files-old';
+export const PROFILES_WALLET_TABLE = 'profiles_wallet';

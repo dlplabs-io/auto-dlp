@@ -33,6 +33,21 @@ yarn dev
 
 ## API Documentation
 
+### API Structure
+
+The API follows RESTful principles with the following structure:
+
+### File Management
+- `GET /api/files/{fileId}` - Get details about a specific file
+- `POST /api/files/{fileId}/generate` - Generate proof for a specific file
+- `POST /api/files/{fileId}/proof` - Update proof data for a specific file
+- `POST /api/files/sync` - Synchronize files from blockchain to database
+
+### DIMO Integration
+- `GET /api/dimo/vehicles` - List vehicles owned by a wallet address
+- `GET /api/dimo/vehicles/{vehicleId}/permissions` - Check vehicle permissions
+- `POST /api/dimo/vehicles/{vehicleId}/proof` - Generate proof for a vehicle
+
 ### DIMO Vehicle Integration
 
 #### List Vehicles
@@ -138,26 +153,112 @@ Generates a cryptographic proof for a specific vehicle. Requires permission to a
 - `400 Bad Request`: Invalid vehicle ID
 - `500 Internal Server Error`: Error generating proof
 
-### File Management (Work in Progress)
+### File Management API
 
-The following endpoints are currently under development and not fully functional:
-
-#### Create File
+#### Get File Details
 ```http
-POST /api/files
+GET /api/files/{fileId}
 ```
 
-#### Get File Permissions
-```http
-GET /api/files/{fileId}/permissions
+Retrieves details about a specific file by its blockchain file ID.
+
+**Path Parameters**
+- `fileId`: Blockchain file ID
+
+**Response**
+```json
+{
+  "id": string,
+  "blockchainFileId": number,
+  "url": string,
+  "ownerAddress": string,
+  "ownerPublicId": string,
+  "hasCompletedDimo": boolean,
+  "createdAt": string
+}
 ```
 
-#### Add File Permission
+**Error Responses**
+- `404 Not Found`: File not found
+- `500 Internal Server Error`: Server error
+
+#### Generate Proof for File
 ```http
-POST /api/files/{fileId}/permissions
+POST /api/files/{fileId}/generate
 ```
 
-**Note**: File management endpoints are currently being developed and may not work as expected. Please refer to the DIMO vehicle integration endpoints for stable functionality.
+Generates a cryptographic proof for a specific file and stores it in the database.
+
+**Path Parameters**
+- `fileId`: Blockchain file ID
+
+**Response**
+```json
+{
+  "fileId": string,
+  "success": boolean,
+  "error": string (optional)
+}
+```
+
+**Error Responses**
+- `400 Bad Request`: Invalid file ID
+- `404 Not Found`: File not found
+- `405 Method Not Allowed`: Method other than POST
+- `500 Internal Server Error`: Error generating proof
+
+#### Sync Files from Blockchain
+```http
+POST /api/files/sync
+```
+
+Synchronizes files from the blockchain to the local database by processing transactions for specified profiles.
+
+**Request Body**
+```json
+{
+  "profileIds": string[]
+}
+```
+
+**Response**
+```json
+{
+  "success": boolean,
+  "results": [
+    {
+      "profileId": string,
+      "filesProcessed": number,
+      "error": string (optional)
+    }
+  ],
+  "totalFilesProcessed": number,
+  "failedProfiles": string[]
+}
+```
+
+This endpoint:
+1. Processes each profile in the provided array
+2. Polls the profile's relay URL to get transaction status
+3. Retrieves transaction receipts and extracts FileAdded events
+4. Creates or updates file records in the database
+
+**Error Responses**
+- `400 Bad Request`: Missing or invalid profileIds array
+- `405 Method Not Allowed`: Method other than POST
+- `500 Internal Server Error`: Error during synchronization
+
+## Database Operations
+
+The following endpoints perform database operations:
+
+### Create Operations
+- `POST /api/files` - Creates new file entries in the database
+
+### Update Operations
+- `POST /api/files/{fileId}/generate` - Updates files with proof data
+- `POST /api/files/{fileId}/proof` - Updates proof-related data for a specific file
+- `POST /api/files/sync` - Creates or updates file records based on blockchain events
 
 ## Error Handling
 

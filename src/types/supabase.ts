@@ -9,7 +9,93 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          connected_wallet: string | null
+          created_at: string
+          dataregistry_url: string | null
+          dimo_token: string | null
+          dimo_wallet: string
+          id: string
+          public_id: string
+          transaction_completed_at: string | null
+          wallet_completed_at: string | null
+        }
+        Insert: {
+          connected_wallet?: string | null
+          created_at?: string
+          dataregistry_url?: string | null
+          dimo_token?: string | null
+          dimo_wallet: string
+          id?: string
+          public_id?: string
+          transaction_completed_at?: string | null
+          wallet_completed_at?: string | null
+        }
+        Update: {
+          connected_wallet?: string | null
+          created_at?: string
+          dataregistry_url?: string | null
+          dimo_token?: string | null
+          dimo_wallet?: string
+          id?: string
+          public_id?: string
+          transaction_completed_at?: string | null
+          wallet_completed_at?: string | null
+        }
+        Relationships: []
+      }
       files: {
+        Row: {
+          blockchainFileId: number
+          createdAt: string | null
+          id: string
+          is_onchain: boolean
+          ownerIdFkey: string
+          proof: Json | null
+          proof_txn: string | null
+          relay_url: string | null
+          txnHash: string
+          url: string
+          verbose_proof: Json | null
+        }
+        Insert: {
+          blockchainFileId: number
+          createdAt?: string | null
+          id?: string
+          is_onchain?: boolean
+          ownerIdFkey: string
+          proof?: Json | null
+          proof_txn?: string | null
+          relay_url?: string | null
+          txnHash: string
+          url: string
+          verbose_proof?: Json | null
+        }
+        Update: {
+          blockchainFileId?: number
+          createdAt?: string | null
+          id?: string
+          is_onchain?: boolean
+          ownerIdFkey?: string
+          proof?: Json | null
+          proof_txn?: string | null
+          relay_url?: string | null
+          txnHash?: string
+          url?: string
+          verbose_proof?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_accounts_ownerIdFkey_fkey"
+            columns: ["ownerIdFkey"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["public_id"]
+          },
+        ]
+      }
+      "files-old": {
         Row: {
           blockchainFileId: number
           createdAt: string | null

@@ -40,25 +40,25 @@ async function processVehicle(walletAddress: string, tokenId: number, dimoClient
   }
 }
 
-async function processWallet(walletAddress: string, dimoClient: DimoWrapper): Promise<ProfileResult> {
+async function processWallet(dimoWallet: string, connectedWallet: string, dimoClient: DimoWrapper): Promise<ProfileResult> {
   try {
-    const response = await dimoClient.getVehicles(walletAddress);
+    const response = await dimoClient.getVehicles(dimoWallet);
     const vehicles = response.vehicles.filter(vehicle => vehicle.tokenId !== 0);
     
     // Process each vehicle to check permissions
     const vehicleResults = await Promise.all(
-      vehicles.map(vehicle => processVehicle(walletAddress, vehicle.tokenId, dimoClient))
+      vehicles.map(vehicle => processVehicle(dimoWallet, vehicle.tokenId, dimoClient))
     );
 
     return {
-      walletAddress,
+      walletAddress: connectedWallet,
       hasConnectedVehicles: vehicles.length > 0,
       vehicles: vehicleResults
     };
   } catch (error) {
-    console.error(`Error processing wallet ${walletAddress}:`, error);
+    console.error(`Error processing wallet ${dimoWallet}:`, error);
     return {
-      walletAddress,
+      walletAddress: connectedWallet,
       hasConnectedVehicles: false,
       vehicles: []
     };
@@ -71,16 +71,18 @@ async function main() {
     const dimoClient = DimoWrapper.getInstance();
     const supabase = GetSupabaseClient();
 
-    // Query files and join with profiles_wallet
+    // Query files-old and join with profiles-wallet
     const { data: profiles, error } = await supabase
-      .from('files')
+      .from('files-old')
       .select(`
         *,
         profiles_wallet!inner(
-          dimo_completed_wallet
+          dimo_completed_wallet,
+          connected_wallet
         )
       `)
-      .eq('is_onchain', false);
+      .filter('is_onchain', 'eq', false)
+      // .filter('proof->data->score', 'gt', 0.5);
 
     if (error) {
       throw error;
@@ -91,7 +93,7 @@ async function main() {
     // Process all wallets
     const results = await Promise.all(
       profiles.map(profile => 
-        processWallet(profile.profiles_wallet.dimo_completed_wallet, dimoClient)
+        processWallet(profile.profiles_wallet.dimo_completed_wallet!, profile.profiles_wallet.connected_wallet!, dimoClient)
       )
     );
 

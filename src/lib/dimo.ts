@@ -93,7 +93,7 @@ export class DimoWrapper {
 
   public async getVehicles(walletAddress: string): Promise<GetVehiclesResponse> {
       const queryString = `query {
-                vehicles(first:50, filterBy: {owner: "${walletAddress}"}) {
+                vehicles(first:100, filterBy: {owner: "${walletAddress}"}) {
                     nodes {
                         owner,
                         tokenId,
@@ -132,7 +132,7 @@ export class DimoWrapper {
         // Exchange developer token for vehicle token
         const vehicleJwt = await this.dimo.tokenexchange.exchange({
             ...token,
-            privileges: [1],
+            privileges: [2],
             tokenId: vehicleTokenId
         });
 
