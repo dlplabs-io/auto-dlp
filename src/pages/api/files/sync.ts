@@ -45,6 +45,16 @@ const MAX_POLLING_ATTEMPTS = 30;
 const POLLING_INTERVAL = 2000;
 
 // TODO: move into a shared location
+/**
+ * Processes a single account by:
+ * 1. Fetching transaction data from the account's dataregistry URL
+ * 2. Polling the Gelato relay service to check transaction status (if pending)
+ * 3. Extracting FileAdded events from successful transactions
+ * 4. Creating or updating file records in the database 
+ * 
+ * @param accountId - ID of the account to process
+ * @returns Number of files processed
+ */
 async function processAccount(accountId: string) {
   const supabase = GetSupabaseClient();
 
@@ -57,7 +67,7 @@ async function processAccount(accountId: string) {
       .single();
 
     if (accountError || !account?.dataregistry_url) {
-      throw new Error(`Profile not found or missing relay URL: ${accountError?.message}`);
+      throw new Error(`account ${accountId} not found or missing relay URL: ${accountError?.message}`);
     }
 
     // Function to check if task state requires polling
@@ -76,6 +86,7 @@ async function processAccount(accountId: string) {
       task = response.data.task;
       
       if (!requiresPolling(task.taskState)) {
+        console.debug(`Account ${accountId} task state is ${task.taskState}, skipping`);
         break;
       }
       
@@ -132,7 +143,7 @@ async function processAccount(accountId: string) {
         is_onchain: false,
         createdAt: task.executionDate,
         relay_url: account.dataregistry_url,
-        proofTxn: null,
+        proof_txn: null,
         proof: null
       };
 
@@ -144,7 +155,7 @@ async function processAccount(accountId: string) {
         .single();
 
       if (!existingFile) {
-        // Create new file entry if it doesn't exist
+        console.debug("There is no existing files, creating new file");
         const { error: insertError } = await supabase
           .from(FILES_TABLE)
           .insert([fileData]);
@@ -154,12 +165,14 @@ async function processAccount(accountId: string) {
           continue;
         }
       } else {
-        // Update existing file if needed
+        
         if (fileData.createdAt == existingFile.createdAt) {
           // skip the same file
+          console.log("Skipping same file")
           continue;
         }
-        
+
+        console.debug("There's already an existing file, updating");
         const { error: updateError } = await supabase
           .from(FILES_TABLE)
           .update(fileData)

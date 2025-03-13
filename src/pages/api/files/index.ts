@@ -3,21 +3,41 @@ import { ethers } from 'ethers';
 import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
 import { GetSupabaseClient } from '@/lib/supabase';
 import { randomUUID } from 'crypto';
+import { ACCOUNTS_TABLE, FILES_TABLE } from '@/lib/supabase';
 
-const PROFILES_TABLE = "profiles_wallet"
-
-// TODO: update this to use viem
+/**
+ * Submits a file record to VANA. should be done through the UI and the relayer (unused)
+ * 
+ * This endpoint:
+ * 1. Validates the file URL and owner address from the request body
+ * 2. Checks if the file already exists in the database
+ * 3. Verifies the owner account exists in the accounts table
+ * 4. Adds the file to the VANA data registry smart contract
+ * 5. Stores the file details in the database with the blockchain file ID
+ * 
+ * Request Body:
+ * - url: URL of the file to register (required)
+ * - ownerAddress: Ethereum address of the file owner (required)
+ * 
+ * @param req - NextJS API request with file data in the body
+ * @param res - NextJS API response
+ * @returns JSON response with created file details or appropriate error
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    // Only allow POST requests for this endpoint
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method Not Allowed' });
     }
 
+    // Extract required fields from request body
     const { url, ownerAddress } = req.body;
 
+    // Validate required fields
     if (!url || !ownerAddress) {
         return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    // Validate environment configuration
     const contractAddress = process.env.DATA_REGISTRY_CONTRACT_ADDRESS;
     if (!contractAddress) {
         return res.status(500).json({ message: 'Contract address not configured' });
@@ -33,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         // Check if file already exists
         const { data: existingFile } = await supabase
-            .from('files')
+            .from(FILES_TABLE)
             .select('id')
             .eq('url', url)
             .single();
@@ -42,10 +62,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(400).json({ message: 'File already exists' });
         }
 
-        // Check if profile exists
-        const profile = await supabase.from(PROFILES_TABLE).select('*').eq('connected_wallet', ownerAddress).single();
-        if (!profile.data) {
-            return res.status(400).json({ message: 'Profile not found' });
+        // Check if account exists
+        const account = await supabase.from(ACCOUNTS_TABLE).select('*').eq('connected_wallet', ownerAddress).single();
+        if (!account.data) {
+            return res.status(400).json({ message: 'account not found' });
         }
 
         // Initialize provider and contract
@@ -75,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 blockchainFileId: blockchainFileId,
                 url: url,
                 proof: null,
-                ownerIdFkey: profile.data!.public_id,
+                ownerIdFkey: account.data.public_id,
                 createdAt: new Date().toISOString(),
                 txnHash: receipt.transactionHash    
             })
@@ -86,6 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             throw new Error(`Error storing file: ${insertError.message}`);
         }
 
+        // Return success response with file details
         return res.status(201).json({
             message: 'File created successfully',
             fileId: blockchainFileId,
@@ -93,8 +114,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
     } catch (error) {
+        // Log the error for server-side debugging
         console.error('Error creating file:', error);
         
+        // Provide more detailed error information when possible
         if (error instanceof Error) {
             return res.status(500).json({ 
                 message: 'Error creating file',
@@ -102,6 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             });
         }
         
+        // Fallback for unknown error types
         return res.status(500).json({ 
             message: 'Unknown error occurred while creating file' 
         });
