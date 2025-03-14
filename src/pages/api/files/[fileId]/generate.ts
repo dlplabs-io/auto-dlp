@@ -80,7 +80,7 @@ export default async function handler(
       .update({
         proof: JSON.parse(JSON.stringify({ proof: formattedProof })),
         verbose_proof: JSON.parse(JSON.stringify(proofResult.signedProof)), 
-        proofTxn: null // Will be set when proof is submitted to blockchain
+        proof_txn: null // Will be set when proof is submitted to blockchain
       })
       .eq('id', file.id);
 

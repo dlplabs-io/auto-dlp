@@ -78,7 +78,40 @@ POST /api/files/{fileId}/generate
 }
 ```
 
-### 4. Verify Proof Generation (Optional)
+### 4. Submit Proofs to Blockchain
+
+After generating proofs, submit them to the blockchain:
+
+```http
+POST /api/files/{fileId}/submit
+```
+
+**What this does:**
+- Checks if the file already has a proof transaction on chain
+- If not, submits the proof to the blockchain using the Gelato relay service
+- Updates the file record with the relay task URL
+- Asynchronously updates the transaction hash and on-chain status when complete
+
+**Response (Successful Submission):**
+```json
+{
+  "message": "Proof submission initiated",
+  "fileId": "123",
+  "taskId": "0x...",
+  "relayUrl": "https://relay.gelato.digital/tasks/status/0x..."
+}
+```
+
+**Response (Already Submitted):**
+```json
+{
+  "message": "Proof already submitted to blockchain",
+  "fileId": "123",
+  "transactionHash": "0x..."
+}
+```
+
+### 5. Verify Proof Generation (Optional)
 
 To verify a proof was generated correctly:
 
@@ -112,7 +145,10 @@ curl -X POST http://localhost:3000/api/files/sync \
 # (Assuming fileId 456 was returned from the sync)
 curl -X POST http://localhost:3000/api/files/456/generate
 
-# Step 3: Verify proof was generated
+# Step 3: Submit proof to blockchain
+curl -X POST http://localhost:3000/api/files/456/submit
+
+# Step 4: Verify proof was submitted
 curl http://localhost:3000/api/files/456
 ```
 
@@ -124,6 +160,7 @@ For production environments, consider:
 2. **Batch Processing**: Process files in batches to avoid overwhelming the system
 3. **Error Handling**: Implement retry logic for failed proof generations
 4. **Monitoring**: Track the number of files synced and proofs generated
+5. **Webhook Integration**: Set up webhooks to notify your system when proofs are successfully submitted to the blockchain
 
 ## DIMO Integration Workflow
 
