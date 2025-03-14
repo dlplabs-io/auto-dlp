@@ -61,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Process each file with rate limiting (1 per second)
     for (const file of pendingFiles) {
-      try {
+    try {
         const fileId = file.blockchainFileId;
         
         console.log(`Generating proof for file ${fileId}`);
