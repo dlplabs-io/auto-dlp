@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { FILES_TABLE, GetSupabaseClient } from '@/lib/supabase';
 import { generateProof, getAttributesFromScore } from '@/lib/proofGeneration';
 import { ENV } from '@/config/env';
+import { Database } from '@/types';
 import { FormattedProof } from '@/types';
 
 /**
@@ -80,6 +81,7 @@ export default async function handler(
       .update({
         proof: JSON.parse(JSON.stringify({ proof: formattedProof })),
         verbose_proof: JSON.parse(JSON.stringify(proofResult.signedProof)), 
+        status : 'proof_generated' as Database['public']['Enums']['file_status'],
         proof_txn: null // Will be set when proof is submitted to blockchain
       })
       .eq('id', file.id);
