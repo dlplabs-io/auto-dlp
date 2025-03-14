@@ -1,10 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createWalletClient, http, encodeFunctionData } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { vanaChain } from '@/lib/chains';
+import { encodeFunctionData } from 'viem';
 import { GelatoRelay, RelayRequestOptions, SponsoredCallRequest} from '@gelatonetwork/relay-sdk-viem';
 import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
 import { FormattedProof } from '@/types';
+import { Database } from "@/types/supabase";
+import { vanaChain } from '@/lib/chains';
 import { ENV } from '@/config/env';
 import { FILES_TABLE, GetSupabaseClient } from '@/lib/supabase';
 
@@ -186,7 +186,7 @@ export default async function handler(
       .update({
         relay_url: taskStatusUrl,
         updated_at: new Date().toISOString(),
-        submission_status: 'pending'
+        status: 'pending' as Database['public']['Enums']['file_status']
       })
       .eq('blockchainFileId', fileId);
 

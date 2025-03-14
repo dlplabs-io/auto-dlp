@@ -19,7 +19,8 @@ export const ENV = {
   
   // Network Configuration
   RPC_ENDPOINT: requireEnv('RPC_ENDPOINT'),
-  BASE_URL: requireEnv('BASE_URL'),
+  BASE_URL: requireEnv('BASE_URL'), // Prover URL
+  APP_URL: requireEnv('VERCEL_URL'), 
   
   // Gelato Configuration
   GELATO_RELAY_API_KEY: requireEnv('GELATO_RELAY_API_KEY'),

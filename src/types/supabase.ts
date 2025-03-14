@@ -16,6 +16,7 @@ export type Database = {
           dataregistry_url: string | null
           dimo_token: string | null
           dimo_wallet: string
+          file_sync_status: Database["public"]["Enums"]["sync_status"]
           id: string
           public_id: string
           transaction_completed_at: string | null
@@ -27,6 +28,7 @@ export type Database = {
           dataregistry_url?: string | null
           dimo_token?: string | null
           dimo_wallet: string
+          file_sync_status?: Database["public"]["Enums"]["sync_status"]
           id?: string
           public_id?: string
           transaction_completed_at?: string | null
@@ -38,6 +40,7 @@ export type Database = {
           dataregistry_url?: string | null
           dimo_token?: string | null
           dimo_wallet?: string
+          file_sync_status?: Database["public"]["Enums"]["sync_status"]
           id?: string
           public_id?: string
           transaction_completed_at?: string | null
@@ -49,13 +52,14 @@ export type Database = {
         Row: {
           blockchainFileId: number
           created_at: string | null
+          failure_reason: string | null
           id: string
           is_onchain: boolean
           owner_id_fkey: string
           proof: Json | null
           proof_txn: string | null
           relay_url: string | null
-          submission_status: string | null
+          status: Database["public"]["Enums"]["file_status"]
           txn_hash: string
           updated_at: string
           url: string
@@ -64,13 +68,14 @@ export type Database = {
         Insert: {
           blockchainFileId: number
           created_at?: string | null
+          failure_reason?: string | null
           id?: string
           is_onchain?: boolean
           owner_id_fkey: string
           proof?: Json | null
           proof_txn?: string | null
           relay_url?: string | null
-          submission_status?: string | null
+          status?: Database["public"]["Enums"]["file_status"]
           txn_hash: string
           updated_at?: string
           url: string
@@ -79,13 +84,14 @@ export type Database = {
         Update: {
           blockchainFileId?: number
           created_at?: string | null
+          failure_reason?: string | null
           id?: string
           is_onchain?: boolean
           owner_id_fkey?: string
           proof?: Json | null
           proof_txn?: string | null
           relay_url?: string | null
-          submission_status?: string | null
+          status?: Database["public"]["Enums"]["file_status"]
           txn_hash?: string
           updated_at?: string
           url?: string
@@ -249,7 +255,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      file_status:
+        | "new"
+        | "proof_generated"
+        | "submitted"
+        | "confirmed"
+        | "failed"
+      sync_status: "not_synced" | "synced" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never

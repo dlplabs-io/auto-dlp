@@ -69,7 +69,7 @@ export default async function handler(
           timestamp: proofResult.signedProof.signed_fields.proof.created_at,
           attributes: getAttributesFromScore(proofResult.signedProof.signed_fields.proof.score)
         }),
-        proofUrl: ENV.BASE_URL || '', // This should be the offchain URL for the proof
+        proofUrl: `${ENV.APP_URL}/api/files/${fileId}/proof`,
         instruction: '' // keep this empty for now
       }
     };

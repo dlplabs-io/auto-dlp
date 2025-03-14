@@ -4,6 +4,7 @@ import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
 import { GetSupabaseClient } from '@/lib/supabase';
 import { randomUUID } from 'crypto';
 import { ACCOUNTS_TABLE, FILES_TABLE } from '@/lib/supabase';
+import { Database } from '@/types/supabase';
 
 /**
  * Submits a file record to VANA. should be done through the UI and the relayer (unused)
@@ -98,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 owner_id_fkey: account.data.public_id,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-                submission_status: 'not_submitted',
+                status: 'new' as Database['public']['Enums']['file_status'],
                 txn_hash: receipt.transactionHash    
             })
             .select()

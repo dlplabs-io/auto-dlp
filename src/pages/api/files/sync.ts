@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPublicClient, http, parseAbiItem, decodeEventLog, toEventHash } from 'viem';
 import { vanaChain } from '@/lib/chains';
-import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
+import { Database } from "@/types/supabase";
 import { ENV } from '@/config/env';
 import axios from 'axios';
 import { FILES_TABLE, ACCOUNTS_TABLE, GetSupabaseClient } from '@/lib/supabase';
@@ -143,7 +143,7 @@ async function processAccount(accountId: string) {
         is_onchain: false,
         created_at: task.executionDate,
         updated_at: new Date().toISOString(),
-        submission_status: 'not_submitted',
+        status: 'new' as Database['public']['Enums']['file_status'],
         relay_url: account.dataregistry_url,
         proof_txn: null,
         proof: null

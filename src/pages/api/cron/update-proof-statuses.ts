@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { FILES_TABLE, GetSupabaseClient } from '@/lib/supabase';
+import { ENV } from '@/config/env';
 import fetch from 'node-fetch';
 
 // Define the response type from the update-status endpoint
@@ -36,12 +37,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabase = GetSupabaseClient();
   
   try {
-    // Query for pending submissions (have relay_url and submission_status='pending')
+    // Query for pending submissions (have relay_url and status='pending')
     const { data: pendingFiles, error } = await supabase
       .from(FILES_TABLE)
       .select('blockchainFileId')
       .not('relay_url', 'is', null)
-      .eq('submission_status', 'pending')
+      .eq('status', 'pending')
       .limit(50); // Process in batches to avoid timeouts
     
     if (error) {
@@ -78,12 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         console.log(`Checking status for file ${fileId}`);
         
-        // Determine the base URL based on environment
-        // In production, this would be your deployed URL
-        // For local development, use localhost
-        const baseUrl = process.env.VERCEL_URL 
-          ? `https://${process.env.VERCEL_URL}`
-          : 'http://localhost:3000';
+        const baseUrl = ENV.APP_URL || 'http://localhost:3000';
         
         // Call the update-status endpoint for this file
         const response = await fetch(`${baseUrl}/api/files/${fileId}/update-status`);

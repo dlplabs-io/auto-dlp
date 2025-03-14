@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { Database } from "@/types/supabase";
 import { GelatoRelay } from '@gelatonetwork/relay-sdk-viem';
 import { FILES_TABLE, GetSupabaseClient } from '@/lib/supabase';
 import { gelatoRelayParams } from '@/lib/gelato';
@@ -67,15 +68,14 @@ export default async function handler(
       });
     }
 
-    // If submission_status is 'failed', return the failure status
-    if (file.submission_status === 'failed') {
+    // If status is 'failed', return the failure status
+    if (file.status === 'failed') {
       return res.status(200).json({
         fileId: file.blockchainFileId,
-        status: 'failed',
+        status: file.status,
         isOnchain: false,
         message: 'Proof submission previously failed',
         taskId: file.relay_url?.split('/').pop(),
-        submissionStatus: file.submission_status
       });
     }
 
@@ -111,7 +111,7 @@ export default async function handler(
           proof_txn: status.transactionHash,
           is_onchain: true,
           updated_at: new Date().toISOString(),
-          submission_status: 'confirmed'
+          status: 'confirmed'as Database['public']['Enums']['file_status']
         })
         .eq('id', file.id);
         
@@ -142,7 +142,7 @@ export default async function handler(
         .from(FILES_TABLE)
         .update({
           updated_at: new Date().toISOString(),
-          submission_status: 'failed',
+          status: 'failed' as Database['public']['Enums']['file_status'],
           failure_reason: String(status.taskState)
         })
         .eq('id', file.id);
@@ -166,12 +166,11 @@ export default async function handler(
     // Otherwise, the task is still pending
     return res.status(200).json({
       fileId: file.blockchainFileId,
-      status: 'pending',
+      status: file.status || 'pending',
       isOnchain: false,
       message: 'Proof submission is still pending',
       taskId: taskId,
       taskState: status?.taskState ? String(status.taskState) : undefined,
-      submissionStatus: file.submission_status || 'pending'
     });
 
   } catch (error) {

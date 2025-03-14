@@ -69,6 +69,7 @@ POST /api/files/{fileId}/generate
 - Generates a proof using the prover's private key
 - Formats the proof for blockchain submission
 - Updates the file record with both formatted and verbose proof data
+- Updates the file status to `proof_generated`
 
 **Response:**
 ```json
@@ -90,6 +91,7 @@ POST /api/files/{fileId}/submit
 - Checks if the file already has a proof transaction on chain
 - If not, submits the proof to the blockchain using the Gelato relay service
 - Updates the file record with the relay task URL
+- Updates the file status to `pending`
 - Returns immediately without waiting for the transaction to complete
 
 **Response (Successful Submission):**
@@ -122,6 +124,7 @@ GET /api/files/{fileId}/update-status
 **What this does:**
 - Checks the current status of a proof submission with the Gelato relay service
 - Updates the database record if the proof has been successfully submitted
+- Updates the file status to `confirmed` or `failed` based on the result
 - Returns the current status of the submission
 
 **Response (Confirmed):**
@@ -132,9 +135,7 @@ GET /api/files/{fileId}/update-status
   "transactionHash": "0x...",
   "isOnchain": true,
   "message": "Proof confirmed on blockchain",
-  "taskId": "0x...",
-  "taskState": "ExecSuccess",
-  "updatedAt": "2025-03-13T20:15:23.456Z"
+  "taskId": "0x..."
 }
 ```
 
@@ -145,8 +146,7 @@ GET /api/files/{fileId}/update-status
   "status": "pending",
   "isOnchain": false,
   "message": "Proof submission is still pending",
-  "taskId": "0x...",
-  "taskState": "CheckPending"
+  "taskId": "0x..."
 }
 ```
 
@@ -157,13 +157,44 @@ GET /api/files/{fileId}/update-status
   "status": "failed",
   "isOnchain": false,
   "message": "Proof submission failed with status: ExecReverted",
-  "taskId": "0x...",
-  "taskState": "ExecReverted",
-  "error": "Transaction failed"
+  "taskId": "0x..."
 }
 ```
 
-### 6. Verify Proof Generation (Optional)
+### 6. Fetch Proof Data
+
+To retrieve the verbose proof data for a file:
+
+```http
+GET /api/files/{fileId}/proof
+```
+
+**What this does:**
+- Fetches the verbose proof data from the database for the specified file
+- Returns the complete proof data as JSON
+
+**Response (Success):**
+```json
+{
+  "signature": "0x...",
+  "signed_fields": {
+    "proof": {
+      "created_at": "2025-03-14T00:36:47-04:00",
+      "score": 95,
+      "attributes": ["high_quality", "premium"]
+    }
+  }
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "error": "Proof not found for this file"
+}
+```
+
+### 7. Verify Proof Generation (Optional)
 
 To verify a proof was generated correctly:
 
@@ -201,21 +232,113 @@ curl -X POST http://localhost:3000/api/files/456/generate
 curl -X POST http://localhost:3000/api/files/456/submit
 
 # Step 4: Check submission status
-curl http://localhost:3000/api/files/456/update-status
+curl -X GET http://localhost:3000/api/files/456/update-status
 
-# Step 5: Verify proof was submitted
-curl http://localhost:3000/api/files/456
+# Step 5: Retrieve the proof data
+curl -X GET http://localhost:3000/api/files/456/proof
 ```
 
-## Automation Considerations
+## Best Practices
 
-For production environments, consider:
-
-1. **Scheduled Syncing**: Set up a cron job or scheduled task to periodically call the sync endpoint
-2. **Batch Processing**: Process files in batches to avoid overwhelming the system
+1. **Rate Limiting**: When processing large numbers of files, implement rate limiting
+2. **Batch Processing**: Process files in batches to avoid timeouts
 3. **Error Handling**: Implement retry logic for failed proof generations
 4. **Monitoring**: Track the number of files synced and proofs generated
 5. **Webhook Integration**: Set up webhooks to notify your system when proofs are successfully submitted to the blockchain
+
+## Background Worker Flow
+
+The application uses a series of background workers (cron jobs) to automate the entire process of syncing accounts, generating proofs, submitting them to the blockchain, and updating their statuses.
+
+### Cron Job Schedule
+
+The following cron jobs are configured in `vercel.json`:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-accounts",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/generate-proofs",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/submit-proofs",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/update-proof-statuses",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
+```
+
+### Background Worker Process Flow
+
+1. **Sync Accounts** (`/api/cron/sync-accounts`)
+   - Runs every 15 minutes
+   - Identifies accounts with `file_sync_status: 'not_synced'` and `dataregistry_url` not null
+   - Calls the `/api/files/sync` endpoint for each account
+   - Updates account `file_sync_status` to `synced` or `failed`
+
+2. **Generate Proofs** (`/api/cron/generate-proofs`)
+   - Runs every 10 minutes
+   - Identifies files with `status: 'new'` (no proof generated)
+   - Calls the `/api/files/{fileId}/generate` endpoint for each file
+   - Updates file status to `proof_generated` or `failed`
+
+3. **Submit Proofs** (`/api/cron/submit-proofs`)
+   - Runs every 5 minutes
+   - Identifies files with `status: 'proof_generated'`
+   - Calls the `/api/files/{fileId}/submit` endpoint for each file
+   - Updates file status to `pending`
+
+4. **Update Proof Statuses** (`/api/cron/update-proof-statuses`)
+   - Runs every 5 minutes
+   - Identifies files with `status: 'pending'`
+   - Calls the `/api/files/{fileId}/update-status` endpoint for each file
+   - Updates file status to `confirmed` or `failed` based on blockchain status
+
+### File Status Flow Diagram
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│             │     │             │     │             │     │             │     │             │
+│  not_synced ├────►│     new     ├────►│proof_generated────►│   pending   ├────►│  confirmed  │
+│             │     │             │     │             │     │             │     │             │
+└─────────────┘     └──────┬──────┘     └──────┬──────┘     └──────┬──────┘     └─────────────┘
+                           │                   │                   │
+                           │                   │                   │
+                           ▼                   ▼                   ▼
+                    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+                    │             │     │             │     │             │
+                    │   failed    │     │   failed    │     │   failed    │
+                    │             │     │             │     │             │
+                    └─────────────┘     └─────────────┘     └─────────────┘
+```
+
+### Background Worker Process Diagram
+
+```
+┌────────────────┐    ┌────────────────┐    ┌────────────────┐    ┌────────────────┐
+│                │    │                │    │                │    │                │
+│  sync-accounts ├───►│ generate-proofs├───►│  submit-proofs ├───►│update-statuses │
+│  (15 min cron) │    │  (10 min cron) │    │  (5 min cron)  │    │  (5 min cron)  │
+│                │    │                │    │                │    │                │
+└───────┬────────┘    └───────┬────────┘    └───────┬────────┘    └───────┬────────┘
+        │                     │                     │                     │
+        ▼                     ▼                     ▼                     ▼
+┌────────────────┐    ┌────────────────┐    ┌────────────────┐    ┌────────────────┐
+│                │    │                │    │                │    │                │
+│   /api/files/  │    │  /api/files/   │    │  /api/files/   │    │  /api/files/   │
+│      sync      │    │{fileId}/generate│    │ {fileId}/submit │    │{fileId}/update-│
+│                │    │                │    │                │    │     status     │
+└────────────────┘    └────────────────┘    └────────────────┘    └────────────────┘
+```
 
 ## DIMO Integration Workflow
 

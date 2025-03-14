@@ -34,7 +34,8 @@ async function updateSupabaseFiles(supabase: SupabaseClient<Database>, files: Fi
     proof_txn: null,
     relay_url: null,
     verbose_proof: null,
-    submission_status: 'not_submitted'
+    status: 'new' as Database['public']['Enums']['file_status'],
+    failure_reason: null
   }));
 
   // Maybe this should be insert?
