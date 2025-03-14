@@ -90,7 +90,7 @@ POST /api/files/{fileId}/submit
 - Checks if the file already has a proof transaction on chain
 - If not, submits the proof to the blockchain using the Gelato relay service
 - Updates the file record with the relay task URL
-- Asynchronously updates the transaction hash and on-chain status when complete
+- Returns immediately without waiting for the transaction to complete
 
 **Response (Successful Submission):**
 ```json
@@ -111,7 +111,59 @@ POST /api/files/{fileId}/submit
 }
 ```
 
-### 5. Verify Proof Generation (Optional)
+### 5. Check Proof Submission Status
+
+To check the status of a proof submission:
+
+```http
+GET /api/files/{fileId}/update-status
+```
+
+**What this does:**
+- Checks the current status of a proof submission with the Gelato relay service
+- Updates the database record if the proof has been successfully submitted
+- Returns the current status of the submission
+
+**Response (Confirmed):**
+```json
+{
+  "fileId": "123",
+  "status": "confirmed",
+  "transactionHash": "0x...",
+  "isOnchain": true,
+  "message": "Proof confirmed on blockchain",
+  "taskId": "0x...",
+  "taskState": "ExecSuccess",
+  "updatedAt": "2025-03-13T20:15:23.456Z"
+}
+```
+
+**Response (Pending):**
+```json
+{
+  "fileId": "123",
+  "status": "pending",
+  "isOnchain": false,
+  "message": "Proof submission is still pending",
+  "taskId": "0x...",
+  "taskState": "CheckPending"
+}
+```
+
+**Response (Failed):**
+```json
+{
+  "fileId": "123",
+  "status": "failed",
+  "isOnchain": false,
+  "message": "Proof submission failed with status: ExecReverted",
+  "taskId": "0x...",
+  "taskState": "ExecReverted",
+  "error": "Transaction failed"
+}
+```
+
+### 6. Verify Proof Generation (Optional)
 
 To verify a proof was generated correctly:
 
@@ -148,7 +200,10 @@ curl -X POST http://localhost:3000/api/files/456/generate
 # Step 3: Submit proof to blockchain
 curl -X POST http://localhost:3000/api/files/456/submit
 
-# Step 4: Verify proof was submitted
+# Step 4: Check submission status
+curl http://localhost:3000/api/files/456/update-status
+
+# Step 5: Verify proof was submitted
 curl http://localhost:3000/api/files/456
 ```
 
