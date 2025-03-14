@@ -6,30 +6,26 @@ import fetch from 'node-fetch';
 // Define the response type from the update-status endpoint
 interface UpdateStatusResponse {
   fileId: string;
-  status: 'confirmed' | 'failed' | 'pending' | 'not_submitted';
-  transactionHash?: string;
+  status: string;
   isOnchain: boolean;
   message: string;
   taskId?: string;
-  taskState?: string;
-  error?: string;
-  updatedAt?: string;
+  transactionHash?: string;
 }
 
 /**
- * Cron job to update proof submission statuses
+ * Cron job to update the status of pending proof submissions
  * 
  * This function:
- * 1. Queries for files that have been submitted but not confirmed on-chain
- * 2. Calls the update-status endpoint for each file to check and update its status
- * 3. Aggregates results and returns a summary
+ * 1. Identifies files with status 'pending'
+ * 2. Calls the update-status endpoint for each file
+ * 3. Updates the database based on the response
  * 
- * Designed to be called by Vercel Cron Jobs on a regular schedule (e.g., every 10 minutes)
+ * Designed to be called by Vercel Cron Jobs on a regular schedule (e.g., every 5 minutes)
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Verify this is a legitimate cron job request
   // In production, you would add authentication here
-  // For example, checking for a secret header that only Vercel would know
   
   console.log("Starting proof status update job");
   
@@ -41,18 +37,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: pendingFiles, error } = await supabase
       .from(FILES_TABLE)
       .select('blockchainFileId')
-      .not('relay_url', 'is', null)
       .eq('status', 'pending')
       .limit(50); // Process in batches to avoid timeouts
     
     if (error) {
-      console.error('Error fetching pending files:', error);
+      console.error('Error fetching files:', error);
       return res.status(500).json({ error: 'Database query failed', details: error.message });
     }
     
     if (!pendingFiles || pendingFiles.length === 0) {
       console.log("No pending proof submissions found");
-      return res.status(200).json({ message: 'No pending submissions to process' });
+      return res.status(200).json({ message: 'No pending submissions to update' });
     }
     
     console.log(`Found ${pendingFiles.length} pending proof submissions to check`);
@@ -60,56 +55,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Track results for reporting
     const results = {
       processed: pendingFiles.length,
-      succeeded: 0,
-      failed: 0,
+      confirmed: 0,
       stillPending: 0,
-      errors: 0
+      failed: 0
     };
     
-    // Process each pending file by calling the update-status endpoint
-    const updatePromises = pendingFiles.map(async (file) => {
+    // Normalize the base URL to ensure it doesn't have a trailing slash
+    const baseUrl = (ENV.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    
+    // Process each file with rate limiting (1 per second)
+    for (const file of pendingFiles) {
       try {
         const fileId = file.blockchainFileId;
         
-        // Skip files without a blockchain file ID
-        if (!fileId) {
-          console.warn(`File has no blockchainFileId, skipping`);
-          return;
-        }
-        
         console.log(`Checking status for file ${fileId}`);
-        
-        const baseUrl = ENV.APP_URL || 'http://localhost:3000';
+        console.log(`Calling ${baseUrl}/api/files/${fileId}/update-status`);
         
         // Call the update-status endpoint for this file
         const response = await fetch(`${baseUrl}/api/files/${fileId}/update-status`);
+        
+        // Log the response status and headers for debugging
+        console.log(`Response status: ${response.status}`);
+        console.log(`Response headers:`, Object.fromEntries(response.headers.entries()));
+        
+        // Check if response is OK before trying to parse JSON
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error updating status for file ${fileId}: Status ${response.status}, Response:`, errorText);
+          results.failed++;
+          continue;
+        }
+        
+        // Parse the JSON response
         const data = await response.json() as UpdateStatusResponse;
         
-        if (!response.ok) {
-          console.error(`Error updating status for file ${fileId}:`, data);
-          results.errors++;
-          return;
-        }
-        
-        // Update our results based on the status
+        // Update tracking based on the status
         if (data.status === 'confirmed') {
-          console.log(`Successfully confirmed file ${fileId} with transaction hash ${data.transactionHash}`);
-          results.succeeded++;
+          console.log(`Proof for file ${fileId} is confirmed on blockchain`);
+          results.confirmed++;
         } else if (data.status === 'failed') {
-          console.warn(`File ${fileId} failed with status: ${data.taskState || 'unknown'}`);
+          console.log(`Proof submission for file ${fileId} failed: ${data.message}`);
           results.failed++;
-        } else if (data.status === 'pending') {
-          console.log(`File ${fileId} is still pending with status: ${data.taskState || 'processing'}`);
+        } else {
+          console.log(`Proof submission for file ${fileId} is still pending`);
           results.stillPending++;
         }
+        
+        // Rate limiting - wait 1 second between requests
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
         console.error(`Error processing file:`, error);
-        results.errors++;
+        results.failed++;
       }
-    });
-    
-    // Wait for all update operations to complete
-    await Promise.all(updatePromises);
+    }
     
     // Return summary
     return res.status(200).json({

@@ -19,7 +19,7 @@ interface GenerateResponse {
  * 2. Calls the generate endpoint for each file
  * 3. Processes files with rate limiting (1 per second)
  * 
- * Designed to be called by Vercel Cron Jobs on a regular schedule (e.g., every 5 minutes)
+ * Designed to be called by Vercel Cron Jobs on a regular schedule (e.g., every 10 minutes)
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Verify this is a legitimate cron job request
@@ -57,36 +57,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       failed: 0
     };
     
-    const baseUrl = ENV.APP_URL || 'http://localhost:3000';
+    // Normalize the base URL to ensure it doesn't have a trailing slash
+    const baseUrl = (ENV.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
     
     // Process each file with rate limiting (1 per second)
     for (const file of pendingFiles) {
-    try {
+      try {
         const fileId = file.blockchainFileId;
         
         console.log(`Generating proof for file ${fileId}`);
+        console.log(`Calling ${baseUrl}/api/files/${fileId}/generate`);
         
         // Call the generate endpoint for this file
         const response = await fetch(`${baseUrl}/api/files/${fileId}/generate`, {
           method: 'POST'
         });
         
-        const data = await response.json() as GenerateResponse;
+        // Log the response status and headers for debugging
+        console.log(`Response status: ${response.status}`);
+        console.log(`Response headers:`, Object.fromEntries(response.headers.entries()));
         
+        // Check if response is OK before trying to parse JSON
         if (!response.ok) {
-          console.error(`Error generating proof for file ${fileId}:`, data);
+          const errorText = await response.text();
+          console.error(`Error generating proof for file ${fileId}: Status ${response.status}, Response:`, errorText);
           
           // Mark as failed and add failure reason
           await supabase
             .from(FILES_TABLE)
             .update({ 
               status: 'failed',
-              failure_reason: data.error || 'Unknown error during proof generation'
+              failure_reason: `API error: ${response.status} - ${errorText.substring(0, 200)}`
             })
             .eq('blockchainFileId', fileId);
           
           results.failed++;
         } else {
+          // Parse the JSON response
+          const data = await response.json() as GenerateResponse;
+          
           console.log(`Successfully generated proof for file ${fileId}`);
           results.succeeded++;
         }

@@ -57,7 +57,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       failed: 0
     };
     
-    const baseUrl = ENV.APP_URL || 'http://localhost:3000';
+    // Normalize the base URL to ensure it doesn't have a trailing slash
+    const baseUrl = (ENV.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
     
     // Process each file with rate limiting (1 per second)
     for (const file of readyFiles) {
@@ -65,28 +66,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const fileId = file.blockchainFileId;
         
         console.log(`Submitting proof for file ${fileId} to blockchain`);
+        console.log(`Calling ${baseUrl}/api/files/${fileId}/submit`);
         
         // Call the submit endpoint for this file
         const response = await fetch(`${baseUrl}/api/files/${fileId}/submit`, {
           method: 'POST'
         });
         
-        const data = await response.json() as SubmitResponse;
+        // Log the response status and headers for debugging
+        console.log(`Response status: ${response.status}`);
+        console.log(`Response headers:`, Object.fromEntries(response.headers.entries()));
         
+        // Check if response is OK before trying to parse JSON
         if (!response.ok) {
-          console.error(`Error submitting proof for file ${fileId}:`, data);
+          const errorText = await response.text();
+          console.error(`Error submitting proof for file ${fileId}: Status ${response.status}, Response:`, errorText);
           
           // Mark as failed and add failure reason
           await supabase
             .from(FILES_TABLE)
             .update({ 
               status: 'failed',
-              failure_reason: data.error || 'Unknown error during blockchain submission'
+              failure_reason: `API error: ${response.status} - ${errorText.substring(0, 200)}`
             })
             .eq('blockchainFileId', fileId);
           
           results.failed++;
         } else {
+          // Parse the JSON response
+          const data = await response.json() as SubmitResponse;
+          
           console.log(`Successfully initiated proof submission for file ${fileId}`);
           results.succeeded++;
         }

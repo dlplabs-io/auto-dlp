@@ -57,19 +57,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         console.log(`Syncing account ${accountId}`);
         
-        const baseUrl = ENV.APP_URL || 'http://localhost:3000';
+        // Normalize the base URL to ensure it doesn't have a trailing slash
+        const baseUrl = (ENV.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
         
         // Call the sync endpoint for this account
+        console.log(`Calling ${baseUrl}/api/files/sync`);
         const response = await fetch(`${baseUrl}/api/files/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accountIds: [accountId] })
         });
         
-        const data = await response.json();
+        // Log the response status and headers for debugging
+        console.log(`Response status: ${response.status}`);
+        console.log(`Response headers:`, Object.fromEntries(response.headers.entries()));
         
+        // Check if response is OK before trying to parse JSON
         if (!response.ok) {
-          console.error(`Error syncing account ${accountId}:`, data);
+          const errorText = await response.text();
+          console.error(`Error syncing account ${accountId}: Status ${response.status}, Response:`, errorText);
           
           // Mark account as failed
           await supabase
@@ -80,6 +86,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           results.failed++;
           return;
         }
+        
+        // Parse the JSON response
+        const data = await response.json();
         
         // Mark account as synced
         await supabase
