@@ -48,47 +48,53 @@ export type Database = {
       files: {
         Row: {
           blockchainFileId: number
-          createdAt: string | null
+          created_at: string | null
           id: string
           is_onchain: boolean
-          ownerIdFkey: string
+          owner_id_fkey: string
           proof: Json | null
           proof_txn: string | null
           relay_url: string | null
-          txnHash: string
+          submission_status: string | null
+          txn_hash: string
+          updated_at: string
           url: string
           verbose_proof: Json | null
         }
         Insert: {
           blockchainFileId: number
-          createdAt?: string | null
+          created_at?: string | null
           id?: string
           is_onchain?: boolean
-          ownerIdFkey: string
+          owner_id_fkey: string
           proof?: Json | null
           proof_txn?: string | null
           relay_url?: string | null
-          txnHash: string
+          submission_status?: string | null
+          txn_hash: string
+          updated_at?: string
           url: string
           verbose_proof?: Json | null
         }
         Update: {
           blockchainFileId?: number
-          createdAt?: string | null
+          created_at?: string | null
           id?: string
           is_onchain?: boolean
-          ownerIdFkey?: string
+          owner_id_fkey?: string
           proof?: Json | null
           proof_txn?: string | null
           relay_url?: string | null
-          txnHash?: string
+          submission_status?: string | null
+          txn_hash?: string
+          updated_at?: string
           url?: string
           verbose_proof?: Json | null
         }
         Relationships: [
           {
-            foreignKeyName: "files_accounts_ownerIdFkey_fkey"
-            columns: ["ownerIdFkey"]
+            foreignKeyName: "files_owner_id_fkey_fkey"
+            columns: ["owner_id_fkey"]
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["public_id"]

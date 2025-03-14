@@ -180,10 +180,13 @@ export default async function handler(
     );
     
     // Update relay_url in the database
+    const taskStatusUrl = `https://relay.gelato.digital/tasks/status/${response.taskId}`;
     const { error: updateError } = await supabase
       .from(FILES_TABLE)
-      .update({ 
-        relay_url: `https://relay.gelato.digital/tasks/status/${response.taskId}`
+      .update({
+        relay_url: taskStatusUrl,
+        updated_at: new Date().toISOString(),
+        submission_status: 'pending'
       })
       .eq('blockchainFileId', fileId);
 
@@ -196,7 +199,7 @@ export default async function handler(
       message: 'Proof submission initiated',
       fileId: fileId,
       taskId: response.taskId,
-      relayUrl: `https://relay.gelato.digital/tasks/status/${response.taskId}`
+      relayUrl: taskStatusUrl
     });
 
   } catch (error) {

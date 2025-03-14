@@ -75,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const wallet = new ethers.Wallet(walletPrivateKey, provider);
         const contract = new ethers.Contract(contractAddress, DATA_REGISTRY_ABI, wallet);
 
-        // Add file to blockchain
+        // Add file to DLP registry
         const tx = await contract.addFile(url, ownerAddress);
         const receipt = await tx.wait();
 
@@ -95,9 +95,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 blockchainFileId: blockchainFileId,
                 url: url,
                 proof: null,
-                ownerIdFkey: account.data.public_id,
-                createdAt: new Date().toISOString(),
-                txnHash: receipt.transactionHash    
+                owner_id_fkey: account.data.public_id,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                submission_status: 'not_submitted',
+                txn_hash: receipt.transactionHash    
             })
             .select()
             .single();

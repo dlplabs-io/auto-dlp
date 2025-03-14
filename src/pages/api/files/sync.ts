@@ -137,11 +137,13 @@ async function processAccount(accountId: string) {
     for (const args of logs) {
       const fileData = {
         blockchainFileId: Number(args.fileId),
-        ownerIdFkey: account.public_id,
+        owner_id_fkey: account.public_id,
         url: args.url,
-        txnHash: task.transactionHash as string,
+        txn_hash: task.transactionHash as string,
         is_onchain: false,
-        createdAt: task.executionDate,
+        created_at: task.executionDate,
+        updated_at: new Date().toISOString(),
+        submission_status: 'not_submitted',
         relay_url: account.dataregistry_url,
         proof_txn: null,
         proof: null
@@ -165,10 +167,9 @@ async function processAccount(accountId: string) {
           continue;
         }
       } else {
-        
-        if (fileData.createdAt == existingFile.createdAt) {
-          // skip the same file
-          console.log("Skipping same file")
+        // skip the same file
+        if (fileData.created_at == existingFile.created_at) {
+          console.debug("Skipping same file");
           continue;
         }
 

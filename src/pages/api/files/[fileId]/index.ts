@@ -63,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ownerAddress: file.owner?.connected_wallet,
             ownerPublicId: file.owner?.public_id || null,
             hasCompletedDimo: file.owner?.dimo_token || false,
-            createdAt: file.createdAt
+            createdAt: file.created_at
         });
 
     } catch (error) {

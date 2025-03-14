@@ -23,16 +23,18 @@ async function updateSupabaseFiles(supabase: SupabaseClient<Database>, files: Fi
   
   const updates = files.map((file): Database['public']['Tables']['files']['Row'] =>  ({
     id: randomUUID(), 
-    ownerIdFkey: file.profileId,
+    owner_id_fkey: file.profileId,
     blockchainFileId: Number(file.fileId),
     url: file.url,
-    txnHash: file.transactionHash,
-    createdAt: file.createdAt,
+    txn_hash: file.transactionHash,
+    created_at: file.createdAt,
+    updated_at: new Date().toISOString(),
     proof : null,
     is_onchain: false,
     proof_txn: null,
     relay_url: null,
-    verbose_proof: null
+    verbose_proof: null,
+    submission_status: 'not_submitted'
   }));
 
   // Maybe this should be insert?
