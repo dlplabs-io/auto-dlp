@@ -63,7 +63,7 @@ export default async function handler(
     if (!proofResult.fileData.isValid) {
       return res.status(400).json({
         error: 'Invalid file data',
-        message: 'File data is not valid'
+        message: 'File data is not valid (check logs)'
       });
     }
 
