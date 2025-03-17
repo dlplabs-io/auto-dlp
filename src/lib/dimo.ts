@@ -108,7 +108,7 @@ export class DimoWrapper {
         query: queryString
       }) as unknown as VehicleGraphQLResponse;
       
-      // console.debug("vehicleResponse", response.data.vehicles.nodes);
+      console.debug(`vehicleResponse for ${walletAddress}`, response);
 
       const vehicles = response.data.vehicles.nodes
         .filter((vehicle: SingleVehicleGraphQLResponse) => vehicle.tokenId !== 0)

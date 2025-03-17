@@ -5,7 +5,7 @@ import axios from 'axios';
 
 import { vanaChain } from '@/lib/chains';
 import { DimoWrapper} from '@/lib/dimo';
-import { GetSupabaseClient } from '@/lib/supabase';
+import { ACCOUNTS_TABLE, GetSupabaseClient } from '@/lib/supabase';
 import { DATA_REGISTRY_ABI } from '@/contracts/DataRegistryABI';
 import { ENV } from '@/config/env';
 import { 
@@ -196,8 +196,8 @@ export function getAttributesFromScore(score: number) : string[] {
 }
 
 function calculateProofScore(profile: any, vehicles: any[], permissions: { [key: number]: boolean }): number {
-  // No dimo_completed_wallet
-  if (!profile.dimo_completed_wallet) {
+  // No dimo_wallet
+  if (!profile.dimo_wallet) {
     return 0;
   }
 
@@ -266,13 +266,13 @@ async function validateFileAndCalculateScore(
 
     // Get profile from DB using the Public ID from the API response
     const { data: profile } = await supabase
-      .from('profiles_wallet')
+      .from(ACCOUNTS_TABLE)
       .select('*')
       .eq('public_id', vehicleData.id)
       .single();
 
     // Early return if no wallet
-    if (!profile?.dimo_completed_wallet) {
+    if (!profile?.dimo_wallet) {
       return {
         blockchainFileId: Number(fileId),
         isValid: false,
@@ -284,7 +284,7 @@ async function validateFileAndCalculateScore(
     }
 
     // Get vehicles for the wallet
-    const vehicleResponse = await dimo.getVehicles(profile.dimo_completed_wallet);
+    const vehicleResponse = await dimo.getVehicles(profile.dimo_wallet);
     const vehicles = vehicleResponse.vehicles.filter(v => v.tokenId !== 0);
 
     // Get permissions for each vehicle
@@ -347,7 +347,7 @@ export async function validateFile(fileId: number | string): Promise<FileData> {
 
   // The URL contains a Public ID that we can use to query the DB for the entire record
   const { data: profile, error: profileError } = await supabase
-    .from('profiles_wallet')
+    .from(ACCOUNTS_TABLE)
     .select('*')
     .eq('public_id', vehicleData.id)
     .single();
@@ -356,12 +356,12 @@ export async function validateFile(fileId: number | string): Promise<FileData> {
     throw new Error(`Failed to fetch profile from database: ${profileError.message}`);
   } 
 
-  if (!profile || !profile.dimo_completed_wallet) {
+  if (!profile || !profile.dimo_wallet) {
     throw new Error(`Profile: ${vehicleData.id} has connected their dimo account`);
   }
 
   // Get the list of Vehicles for the the connected profile
-  const vehiclesResponse = await dimo.getVehicles(profile.dimo_completed_wallet);
+  const vehiclesResponse = await dimo.getVehicles(profile.dimo_wallet);
   if (vehiclesResponse.vehicles.length === 0) {
     throw new Error(`No vehicles found for profile: ${vehicleData.id}`);
   }
