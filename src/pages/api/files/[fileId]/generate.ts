@@ -59,6 +59,14 @@ export default async function handler(
       privateKey: ENV.PROVER_PRIVATE_KEY
     });
 
+    // Check for errors during the proof generation process
+    if (!proofResult.fileData.isValid) {
+      return res.status(400).json({
+        error: 'Invalid file data',
+        message: 'File data is not valid'
+      });
+    }
+
     // Format the proof for blockchain submission with specific fields
     const formattedProof: FormattedProof = {
       fileId: Number(file.blockchainFileId),
@@ -71,7 +79,7 @@ export default async function handler(
           attributes: getAttributesFromScore(proofResult.signedProof.signed_fields.proof.score)
         }),
         proofUrl: `${ENV.APP_URL}/api/files/${fileId}/proof`,
-        instruction: '' // keep this empty for now
+        instruction: '' // keep this empty until we have instructions
       }
     };
 
