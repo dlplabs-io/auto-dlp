@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select('public_id')
       .eq('file_sync_status', 'not_synced')
       .not('dataregistry_url', 'is', null)
-      .limit(50); // Process in batches
+      .limit(10); // Process in batches
     
     if (error) {
       console.error('Error fetching accounts:', error);

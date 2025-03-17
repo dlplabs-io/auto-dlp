@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from(FILES_TABLE)
       .select('blockchainFileId')
       .eq('status', 'proof_generated')
-      .limit(50); // Process in batches to avoid timeouts
+      .limit(5); // Process in batches to avoid timeouts
     
     if (error) {
       console.error('Error fetching files:', error);
