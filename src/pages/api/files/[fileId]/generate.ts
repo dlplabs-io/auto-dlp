@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { FILES_TABLE, GetSupabaseClient } from '@/lib/supabase';
 import { generateProof, getAttributesFromScore } from '@/lib/proofGeneration';
 import { ENV } from '@/config/env';
-import { Database } from '@/types';
+import { Database } from '@/types/supabase';
 import { FormattedProof } from '@/types';
 
 /**
